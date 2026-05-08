@@ -34,7 +34,10 @@ qt_add_qml_module(muse_cloud_qml
         AccountAvatar.qml
         AccountInfoButton.qml
         AccountPage.qml
+        CloudScoresView.qml
         internal/CloudItem.qml
+        internal/CloudScoresGridView.qml
+        internal/CloudScoresListView.qml
         internal/CloudsListView.qml
         RequireAuthorizationDialog.qml
     IMPORTS
