@@ -50,7 +50,7 @@ void RegisterAudioPluginsScenario::init()
     }
 }
 
-PluginScanResult RegisterAudioPluginsScenario::scanPlugins() const
+PluginScanResult RegisterAudioPluginsScenario::scanPlugins(Progress* progress) const
 {
     TRACEFUNC;
 
@@ -62,7 +62,7 @@ PluginScanResult RegisterAudioPluginsScenario::scanPlugins() const
     }
 
     for (const auto& scanner : scannerRegister()->scanners()) {
-        for (const auto& path : scanner->scanPlugins()) {
+        for (const auto& path : scanner->scanPlugins(progress)) {
             if (auto it = registered.find(path); it != registered.end()) {
                 registered.erase(it);
             } else {

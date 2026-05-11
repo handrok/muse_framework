@@ -24,6 +24,7 @@
 #include <memory>
 
 #include "global/io/path.h"
+#include "global/progress.h"
 
 namespace muse::audioplugins {
 class IAudioPluginsScanner
@@ -31,7 +32,7 @@ class IAudioPluginsScanner
 public:
     virtual ~IAudioPluginsScanner() = default;
 
-    virtual io::paths_t scanPlugins() const = 0;
+    virtual io::paths_t scanPlugins(Progress* progress = nullptr) const = 0;
 };
 
 using IAudioPluginsScannerPtr = std::shared_ptr<IAudioPluginsScanner>;

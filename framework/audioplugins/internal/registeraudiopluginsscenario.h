@@ -50,7 +50,7 @@ public:
 
     void init();
 
-    PluginScanResult scanPlugins() const override;
+    PluginScanResult scanPlugins(Progress* progress = nullptr) const override;
 
     Ret updatePluginsRegistry() override;
     void registerNewPlugins(const io::paths_t& pluginPaths) override;

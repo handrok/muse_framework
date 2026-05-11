@@ -35,7 +35,7 @@ class VstPluginsScanner : public audioplugins::IAudioPluginsScanner
     GlobalInject<io::IFileSystem> fileSystem;
 
 public:
-    io::paths_t scanPlugins() const override;
+    io::paths_t scanPlugins(Progress* progress = nullptr) const override;
 
 private:
     io::paths_t pluginPathsFromCustomLocations(const io::paths_t& customPaths) const;

@@ -29,6 +29,6 @@ namespace muse::audioplugins {
 class AudioPluginsScannerMock : public IAudioPluginsScanner
 {
 public:
-    MOCK_METHOD(io::paths_t, scanPlugins, (), (const, override));
+    MOCK_METHOD(io::paths_t, scanPlugins, (Progress * progress), (const, override));
 };
 }

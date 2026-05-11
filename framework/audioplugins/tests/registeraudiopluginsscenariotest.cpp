@@ -136,7 +136,7 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry)
         AudioPluginsScannerMock* mock = dynamic_cast<AudioPluginsScannerMock*>(scanner.get());
         ASSERT_TRUE(mock);
 
-        ON_CALL(*mock, scanPlugins())
+        ON_CALL(*mock, scanPlugins(_))
         .WillByDefault(Return(foundPluginPaths));
     }
 
@@ -216,7 +216,7 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_NoNe
         AudioPluginsScannerMock* mock = dynamic_cast<AudioPluginsScannerMock*>(scanner.get());
         ASSERT_TRUE(mock);
 
-        ON_CALL(*mock, scanPlugins())
+        ON_CALL(*mock, scanPlugins(_))
         .WillByDefault(Return(foundPluginPaths));
     }
 
@@ -281,7 +281,7 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Unre
         AudioPluginsScannerMock* mock = dynamic_cast<AudioPluginsScannerMock*>(scanner.get());
         ASSERT_TRUE(mock);
 
-        ON_CALL(*mock, scanPlugins())
+        ON_CALL(*mock, scanPlugins(_))
         .WillByDefault(Return(foundPluginPaths));
     }
 

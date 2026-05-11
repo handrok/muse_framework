@@ -52,7 +52,7 @@ static io::paths_t pluginPathsFromDefaultLocation()
 }
 }
 
-io::paths_t VstPluginsScanner::scanPlugins() const
+io::paths_t VstPluginsScanner::scanPlugins(Progress*) const
 {
     TRACEFUNC;
 

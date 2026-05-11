@@ -24,9 +24,8 @@
 
 #include "modularity/imoduleinterface.h"
 
-#include "global/types/ret.h"
-#include "global/io/path.h"
 #include "audio/common/audiotypes.h"
+#include "global/progress.h"
 
 namespace muse::audioplugins {
 struct PluginScanResult {
@@ -41,7 +40,7 @@ class IRegisterAudioPluginsScenario : MODULE_CONTEXT_INTERFACE
 public:
     virtual ~IRegisterAudioPluginsScenario() = default;
 
-    virtual PluginScanResult scanPlugins() const = 0;
+    virtual PluginScanResult scanPlugins(Progress* progress = nullptr) const = 0;
 
     virtual Ret updatePluginsRegistry() = 0;
     virtual void registerNewPlugins(const io::paths_t& pluginPaths) = 0;
