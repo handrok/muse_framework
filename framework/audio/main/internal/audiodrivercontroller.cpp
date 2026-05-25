@@ -180,9 +180,11 @@ void AudioDriverController::setNewDriver(IAudioDriverPtr newDriver)
     if (m_audioDriver) {
         // subscribe
         m_audioDriver->availableOutputDevicesChanged().onNotify(this, [this]() {
-            m_availableOutputDevicesChanged.notify();
-            LOGI() << "Available output devices changed, checking connection...";
-            checkOutputDevice();
+            async::Async::call(this, [this]() {
+                LOGI() << "Available output devices changed, checking connection...";
+                handleOutputDeviceChange();
+                m_availableOutputDevicesChanged.notify();
+            });
         });
 
         m_audioDriver->activeSpecChanged().onReceive(this, [this](const IAudioDriver::Spec& spec) {
@@ -284,22 +286,7 @@ bool AudioDriverController::open(const IAudioDriver::Spec& spec, IAudioDriver::S
     }
 
     if (!ok) {
-        const std::string defaultAudioDriverName = configuration()->defaultAudioDriverName();
-        if (defaultAudioDriverName != currentAudioDriverName) {
-            LOGW() << "Failed to open driver: " << m_audioDriver->name() << ", falling back to default: " << defaultAudioApi;
-            IAudioDriverPtr defaultDriver = createDriver(defaultAudioDriverName);
-            defaultDriver->init();
-            setNewDriver(defaultDriver);
-            // reset to default
-            IAudioDriver::Spec defSpec;
-            defSpec.deviceId = DEFAULT_DEVICE_ID;
-            defSpec.output = configuration()->defaultOutputSpec();
-            defSpec.callback = spec.callback;
-            ok = m_audioDriver->open(defSpec, activeSpec);
-            if (ok) {
-                configuration()->setCurrentAudioDriverName(defaultAudioDriverName);
-            }
-        }
+        ok = switchToDefaultAudioDriver(activeSpec);
     }
 
     if (ok) {
@@ -387,9 +374,9 @@ async::Notification AudioDriverController::outputDeviceChanged() const
     return m_outputDeviceChanged;
 }
 
-void AudioDriverController::checkOutputDevice()
+void AudioDriverController::handleOutputDeviceChange()
 {
-    if (!m_audioDriver->isOpened()) {
+    if (!m_audioDriver->isOpened() && !m_retryOpenDevice) {
         return;
     }
 
@@ -403,9 +390,45 @@ void AudioDriverController::checkOutputDevice()
         spec.deviceId = DEFAULT_DEVICE_ID;
         ok = m_audioDriver->open(spec, nullptr);
         if (!ok) {
-            LOGE() << "Failed to reopen default device";
+            LOGE() << "Failed to reopen default device on " << m_audioDriver->name() << ", switching to default audio driver";
+            switchToDefaultAudioDriver();
         }
     }
+
+    m_retryOpenDevice = !ok;
+}
+
+bool AudioDriverController::switchToDefaultAudioDriver(IAudioDriver::Spec* activeSpec)
+{
+    const std::string defaultAudioDriverName = configuration()->defaultAudioDriverName();
+    const std::string currentAudioDriverName = configuration()->currentAudioDriverName();
+
+    if (defaultAudioDriverName == currentAudioDriverName) {
+        LOGE() << "Already on the default audio driver: " << defaultAudioDriverName << ", cannot fall back further";
+        return false;
+    }
+
+    LOGW() << "Switching from " << currentAudioDriverName << " to default audio driver: " << defaultAudioDriverName;
+
+    IAudioDriverPtr defaultDriver = createDriver(defaultAudioDriverName);
+    defaultDriver->init();
+    setNewDriver(defaultDriver);
+
+    IAudioDriver::Spec defSpec;
+    defSpec.deviceId = DEFAULT_DEVICE_ID;
+    defSpec.output = configuration()->defaultOutputSpec();
+    defSpec.callback = m_callback;
+
+    bool ok = m_audioDriver->open(defSpec, activeSpec);
+    if (ok) {
+        configuration()->setCurrentAudioDriverName(defaultAudioDriverName);
+        m_currentAudioDriverChanged.notify();
+        LOGI() << "Successfully switched to default audio driver: " << defaultAudioDriverName;
+    } else {
+        LOGE() << "Failed to open default audio driver: " << defaultAudioDriverName;
+    }
+
+    return ok;
 }
 
 void AudioDriverController::updateOutputSpec()
