@@ -206,16 +206,6 @@ void AudioDriverController::setNewDriver(IAudioDriverPtr newDriver)
     }
 }
 
-IAudioDriver::Spec AudioDriverController::defaultSpec() const
-{
-    IAudioDriver::Spec spec;
-    spec.deviceId = m_audioDriver ? m_audioDriver->defaultDevice() : AudioDeviceID();
-    spec.output.audioChannelCount = 2;
-    spec.output.sampleRate = 44100;
-    spec.output.samplesPerChannel = DEFAULT_BUFFER_SIZE;
-    return spec;
-}
-
 std::string AudioDriverController::currentAudioDriverName() const
 {
     return configuration()->currentAudioDriverName();
@@ -237,10 +227,11 @@ void AudioDriverController::changeCurrentAudioDriver(const std::string& name)
     LOGI() << "Used audio driver: " << m_audioDriver->name();
 
     // reset to default
-    IAudioDriver::Spec spec = defaultSpec();
+    IAudioDriver::Spec spec;
+    spec.output = configuration()->defaultOutputSpec();
     spec.callback = m_callback;
 
-    if (!spec.deviceId.empty()) {
+    if (m_audioDriver && !m_audioDriver->defaultDevice().empty()) {
         spec.deviceId = DEFAULT_DEVICE_ID;
         m_audioDriver->open(spec, nullptr);
     } else {
@@ -294,7 +285,9 @@ bool AudioDriverController::open(const IAudioDriver::Spec& spec, IAudioDriver::S
             defaultDriver->init();
             setNewDriver(defaultDriver);
             // reset to default
-            IAudioDriver::Spec defSpec = defaultSpec();
+            IAudioDriver::Spec defSpec;
+            defSpec.deviceId = DEFAULT_DEVICE_ID;
+            defSpec.output = configuration()->defaultOutputSpec();
             defSpec.callback = spec.callback;
             ok = m_audioDriver->open(defSpec, activeSpec);
             if (ok) {
@@ -393,7 +386,7 @@ void AudioDriverController::checkOutputDevice()
     bool ok = m_audioDriver->open(spec, nullptr);
     if (!ok) {
         // reset to default device
-        spec.deviceId = m_audioDriver->defaultDevice();
+        spec.deviceId = DEFAULT_DEVICE_ID;
         m_audioDriver->open(spec, nullptr);
     }
 }
