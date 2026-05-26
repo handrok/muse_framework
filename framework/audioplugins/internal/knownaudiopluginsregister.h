@@ -46,15 +46,15 @@ public:
     AudioPluginInfoList pluginInfoList(PluginInfoAccepted accepted = PluginInfoAccepted()) const override;
     muse::async::Notification pluginInfoListChanged() const override;
 
-    const io::path_t& pluginPath(const AudioResourceId& resourceId) const override;
+    const io::path_t& pluginPath(const PluginResourceId& resourceId) const override;
 
     bool exists(const io::path_t& pluginPath) const override;
-    bool exists(const AudioResourceId& resourceId) const override;
+    bool exists(const PluginResourceId& resourceId) const override;
 
     Ret registerPlugins(const AudioPluginInfoList& list) override;
-    Ret unregisterPlugins(const AudioResourceIdList& resourceIds) override;
+    Ret unregisterPlugins(const PluginResourceIdList& resourceIds) override;
 
-    Ret setPluginsState(const AudioResourceIdList& resourceIds, AudioPluginState state) override;
+    Ret setPluginsState(const PluginResourceIdList& resourceIds, AudioPluginState state) override;
 
     Ret removePluginsAtPath(const io::path_t& path) override;
 
@@ -62,7 +62,7 @@ private:
     Ret writePluginsInfo();
     async::Notification m_pluginInfoListChanged;
     bool m_loaded = false;
-    std::multimap<AudioResourceId, AudioPluginInfo> m_pluginInfoMap;
+    std::multimap<PluginResourceId, AudioPluginInfo> m_pluginInfoMap;
     std::set<io::path_t> m_pluginPaths;
 };
 }

@@ -38,10 +38,10 @@ public:
 
     io::path_t knownAudioPluginsFilePath() const override;
 
-    const AudioResourceAttributes& runtimeAttributeDefaults() const override;
-    void setRuntimeAttributeDefaults(const AudioResourceAttributes& defaults) override;
+    const PluginAttributes& runtimeAttributeDefaults() const override;
+    void setRuntimeAttributeDefaults(const PluginAttributes& defaults) override;
 
 private:
-    AudioResourceAttributes m_runtimeAttributeDefaults;
+    PluginAttributes m_runtimeAttributeDefaults;
 };
 }

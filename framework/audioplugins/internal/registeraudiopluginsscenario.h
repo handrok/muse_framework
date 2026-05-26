@@ -54,7 +54,7 @@ public:
 
     Ret updatePluginsRegistry() override;
     Ret registerNewPlugins(const io::paths_t& pluginPaths, bool validate) override;
-    Ret unregisterRemovedPlugins(const AudioResourceIdList& pluginIds) override;
+    Ret unregisterRemovedPlugins(const PluginResourceIdList& pluginIds) override;
 
     Ret registerPlugin(const io::path_t& pluginPath) override;
     Ret registerFailedPlugin(const io::path_t& pluginPath, int failCode) override;
@@ -63,7 +63,7 @@ private:
     Ret persistDiscoveredPlaceholders(const io::paths_t& pluginPaths);
     void processPluginsRegistration(const io::paths_t& pluginPaths);
     IAudioPluginMetaReaderPtr metaReader(const io::path_t& pluginPath) const;
-    AudioResourceType metaType(const io::path_t& pluginPath) const;
+    PluginType metaType(const io::path_t& pluginPath) const;
 
     Progress m_progress;
     bool m_aborted = false;

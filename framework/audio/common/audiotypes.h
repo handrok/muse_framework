@@ -22,11 +22,14 @@
 
 #pragma once
 
+#include <map>
 #include <variant>
 #include <set>
 #include <string>
 #include <cmath>
 #include <sstream>
+#include <tuple>
+#include <vector>
 
 #include "global/types/number.h"
 #include "global/types/secs.h"
@@ -37,9 +40,14 @@
 
 #include "mpe/events.h"
 
-#include "audioplugins/audiopluginstypes.h"
-
 #include "log.h"
+
+// Forward-declared audioplugins aliases; audio must not depend on that module.
+namespace muse::audioplugins {
+using PluginResourceId = std::string;
+using PluginResourceIdList = std::vector<PluginResourceId>;
+using PluginType = std::string;
+}
 
 namespace muse::audio {
 using secs_t = muse::secs_t;
@@ -171,21 +179,88 @@ struct AudioEngineConfig {
 using AudioSourceName = std::string;
 using AudioUnitConfig = std::map<std::string, std::string>;
 
-using AudioResourceId = muse::audioplugins::AudioResourceId;
-using AudioResourceIdList = muse::audioplugins::AudioResourceIdList;
-using AudioResourceVendor = muse::audioplugins::AudioResourceVendor;
-using AudioResourceAttributes = muse::audioplugins::AudioResourceAttributes;
-using AudioResourceMeta = muse::audioplugins::AudioResourceMeta;
-using AudioResourceMetaList = muse::audioplugins::AudioResourceMetaList;
-using AudioResourceMetaSet = muse::audioplugins::AudioResourceMetaSet;
+// Audio-pipeline resource id; distinct role from audioplugins::PluginResourceId (both std::string).
+using AudioResourceId = std::string;
+using AudioResourceIdList = std::vector<AudioResourceId>;
 
-// Canonical wire strings the audio engine routes on, persisted in the plugin
-// cache. constexpr so they're usable in the RESOURCE_TYPE_NAMES map below.
+inline AudioResourceId toAudioResourceId(const muse::audioplugins::PluginResourceId& id)
+{
+    return id;
+}
+
+inline AudioResourceIdList toAudioResourceIdList(const muse::audioplugins::PluginResourceIdList& ids)
+{
+    return AudioResourceIdList(ids.begin(), ids.end());
+}
+
+// audioplugins::PluginMeta is the cache-domain twin of AudioResourceMeta;
+// kept separate so neither module depends on the other.
+using AudioResourceVendor = std::string;
+using AudioResourceAttributes = std::map<String, String>;
+
+struct AudioResourceMeta {
+    AudioResourceId id;
+    AudioResourceVendor vendor;
+    AudioResourceAttributes attributes;
+    std::string type;  // wire-string format identifier; see AudioResourceType enum below
+
+    const String& attributeVal(const String& key) const
+    {
+        auto search = attributes.find(key);
+        if (search != attributes.cend()) {
+            return search->second;
+        }
+        static const String empty;
+        return empty;
+    }
+
+    bool isValid() const
+    {
+        return !id.empty() && !vendor.empty() && !type.empty();
+    }
+
+    bool operator==(const AudioResourceMeta& other) const
+    {
+        return id == other.id && vendor == other.vendor && type == other.type && attributes == other.attributes;
+    }
+
+    bool operator!=(const AudioResourceMeta& other) const { return !(*this == other); }
+
+    bool operator<(const AudioResourceMeta& other) const
+    {
+        return std::tie(id, vendor, type, attributes)
+               < std::tie(other.id, other.vendor, other.type, other.attributes);
+    }
+};
+
+using AudioResourceMetaList = std::vector<AudioResourceMeta>;
+using AudioResourceMetaSet = std::set<AudioResourceMeta>;
+
+inline bool boolAttribute(const AudioResourceMeta& meta, const String& key, bool fallback = false)
+{
+    const String& v = meta.attributeVal(key);
+    if (v.empty()) {
+        return fallback;
+    }
+    return v == u"true" || v == u"1";
+}
+
+inline int intAttribute(const AudioResourceMeta& meta, const String& key, int fallback = 0)
+{
+    const String& v = meta.attributeVal(key);
+    if (v.empty()) {
+        return fallback;
+    }
+    bool ok = true;
+    int n = v.toInt(&ok);
+    return ok ? n : fallback;
+}
+
+// Wire strings persisted in the plugin cache; constexpr for the RESOURCE_TYPE_NAMES map below.
 inline constexpr std::string_view FLUID_SOUNDFONT_TYPE_NAME = "FluidSoundfont";
 inline constexpr std::string_view NATIVE_EFFECT_TYPE_NAME = "NativeEffect";
 
-// Audio-engine-internal enum for synth/fx routing; distinct from the opaque
-// audioplugins::AudioResourceType string. Bridge via resourceTypeFromString().
+// Engine-internal routing enum, distinct from the opaque audioplugins::PluginType string.
 enum class AudioResourceType {
     Undefined = -1,
     FluidSoundfont,
@@ -231,7 +306,7 @@ static const String HAS_NATIVE_EDITOR_SUPPORT_ATTRIBUTE(u"hasNativeEditorSupport
 
 inline bool hasNativeEditorSupport(const AudioResourceMeta& meta)
 {
-    return muse::audioplugins::boolAttribute(meta, HAS_NATIVE_EDITOR_SUPPORT_ATTRIBUTE);
+    return boolAttribute(meta, HAS_NATIVE_EDITOR_SUPPORT_ATTRIBUTE);
 }
 
 static const std::map<AudioResourceType, QString> RESOURCE_TYPE_MAP = {
@@ -375,7 +450,7 @@ enum class AudioSourceType {
     MuseSampler
 };
 
-inline AudioSourceType sourceTypeFromResourceType(const muse::audioplugins::AudioResourceType& metaType)
+inline AudioSourceType sourceTypeFromResourceType(const muse::audioplugins::PluginType& metaType)
 {
     switch (resourceTypeFromString(metaType)) {
     case AudioResourceType::FluidSoundfont: return AudioSourceType::Fluid;

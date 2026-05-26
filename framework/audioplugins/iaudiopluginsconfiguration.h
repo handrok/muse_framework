@@ -37,9 +37,8 @@ public:
 
     virtual io::path_t knownAudioPluginsFilePath() const = 0;
 
-    // Attributes the framework treats as runtime-only: skipped on save,
-    // re-injected on load. Apps register their own (e.g. playbackSetupData).
-    virtual const AudioResourceAttributes& runtimeAttributeDefaults() const = 0;
-    virtual void setRuntimeAttributeDefaults(const AudioResourceAttributes& defaults) = 0;
+    // runtime-only attributes: skipped on save, re-injected on load
+    virtual const PluginAttributes& runtimeAttributeDefaults() const = 0;
+    virtual void setRuntimeAttributeDefaults(const PluginAttributes& defaults) = 0;
 };
 }

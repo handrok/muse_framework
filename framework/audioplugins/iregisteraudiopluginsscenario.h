@@ -32,8 +32,8 @@
 namespace muse::audioplugins {
 struct PluginScanResult {
     io::paths_t newPluginPaths;            // not in cache; will be inserted via subprocess validation
-    AudioResourceIdList missingPluginIds;  // in cache but not currently found by any scanner
-    AudioResourceIdList rediscoveredPluginIds; // previously Missing entries the scanner found again
+    PluginResourceIdList missingPluginIds;  // in cache but not currently found by any scanner
+    PluginResourceIdList rediscoveredPluginIds; // previously Missing entries the scanner found again
 };
 
 class IRegisterAudioPluginsScenario : MODULE_CONTEXT_INTERFACE
@@ -46,12 +46,9 @@ public:
     virtual PluginScanResult scanPlugins(Progress* progress = nullptr) const = 0;
 
     virtual Ret updatePluginsRegistry() = 0;
-    // `validate=false` persists the paths as Discovered placeholders only;
-    // out-of-process validation is skipped and the entries will be re-offered
-    // for validation on the next scan. Default `true` runs the full scan.
-    // Returns the first cache write/load failure encountered, or ok.
+    // validate=false only persists Discovered placeholders, to be validated on the next scan
     virtual Ret registerNewPlugins(const io::paths_t& pluginPaths, bool validate = true) = 0;
-    virtual Ret unregisterRemovedPlugins(const AudioResourceIdList& pluginIds) = 0;
+    virtual Ret unregisterRemovedPlugins(const PluginResourceIdList& pluginIds) = 0;
 
     virtual Ret registerPlugin(const io::path_t& pluginPath) = 0;
     virtual Ret registerFailedPlugin(const io::path_t& pluginPath, int failCode) = 0;

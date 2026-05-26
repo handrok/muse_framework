@@ -123,7 +123,7 @@ void VstModulesRepository::refresh()
 muse::audio::AudioResourceMetaList VstModulesRepository::modulesMetaList(PluginType type) const
 {
     auto infoAccepted = [type](const audioplugins::AudioPluginInfo& info) {
-        if (!muse::audio::isResourceType(info.meta, muse::audio::AudioResourceType::VstPlugin)
+        if (info.meta.type != muse::vst::AUDIO_RESOURCE_TYPE_NAME
             || info.state != audioplugins::AudioPluginState::Validated) {
             return false;
         }
@@ -136,8 +136,14 @@ muse::audio::AudioResourceMetaList VstModulesRepository::modulesMetaList(PluginT
     muse::audio::AudioResourceMetaList result;
     result.reserve(infoList.size());
 
+    // bridge the cache-domain PluginMeta to its engine-domain twin field-wise
     for (const audioplugins::AudioPluginInfo& info : infoList) {
-        result.push_back(info.meta);
+        muse::audio::AudioResourceMeta meta;
+        meta.id = info.meta.id;
+        meta.vendor = info.meta.vendor;
+        meta.attributes = info.meta.attributes;
+        meta.type = info.meta.type;
+        result.push_back(std::move(meta));
     }
 
     return result;

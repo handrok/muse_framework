@@ -30,8 +30,8 @@ using namespace muse;
 using namespace muse::audioplugins;
 
 namespace muse::audioplugins {
-static JsonObject attributesToJson(const AudioResourceAttributes& attributes,
-                                   const AudioResourceAttributes& runtimeOnly)
+static JsonObject attributesToJson(const PluginAttributes& attributes,
+                                   const PluginAttributes& runtimeOnly)
 {
     JsonObject result;
 
@@ -46,7 +46,7 @@ static JsonObject attributesToJson(const AudioResourceAttributes& attributes,
     return result;
 }
 
-static JsonObject metaToJson(const AudioResourceMeta& meta, const AudioResourceAttributes& runtimeOnly)
+static JsonObject metaToJson(const PluginMeta& meta, const PluginAttributes& runtimeOnly)
 {
     JsonObject result;
 
@@ -65,9 +65,9 @@ static JsonObject metaToJson(const AudioResourceMeta& meta, const AudioResourceA
     return result;
 }
 
-static AudioResourceAttributes attributesFromJson(const JsonObject& object)
+static PluginAttributes attributesFromJson(const JsonObject& object)
 {
-    AudioResourceAttributes result;
+    PluginAttributes result;
 
     for (const std::string& key : object.keys()) {
         result.insert({ String::fromStdString(key), object.value(key).toString() });
@@ -76,9 +76,9 @@ static AudioResourceAttributes attributesFromJson(const JsonObject& object)
     return result;
 }
 
-static AudioResourceMeta metaFromJson(const JsonObject& object)
+static PluginMeta metaFromJson(const JsonObject& object)
 {
-    AudioResourceMeta result;
+    PluginMeta result;
 
     result.id = object.value("id").toStdString();
     result.type = object.value("type").toStdString();
@@ -208,7 +208,7 @@ muse::async::Notification KnownAudioPluginsRegister::pluginInfoListChanged() con
     return m_pluginInfoListChanged;
 }
 
-const io::path_t& KnownAudioPluginsRegister::pluginPath(const AudioResourceId& resourceId) const
+const io::path_t& KnownAudioPluginsRegister::pluginPath(const PluginResourceId& resourceId) const
 {
     auto it = m_pluginInfoMap.find(resourceId);
     if (it == m_pluginInfoMap.end()) {
@@ -224,7 +224,7 @@ bool KnownAudioPluginsRegister::exists(const io::path_t& pluginPath) const
     return muse::contains(m_pluginPaths, pluginPath);
 }
 
-bool KnownAudioPluginsRegister::exists(const AudioResourceId& resourceId) const
+bool KnownAudioPluginsRegister::exists(const PluginResourceId& resourceId) const
 {
     return muse::contains(m_pluginInfoMap, resourceId);
 }
@@ -262,7 +262,7 @@ Ret KnownAudioPluginsRegister::registerPlugins(const AudioPluginInfoList& list)
     return make_ok();
 }
 
-Ret KnownAudioPluginsRegister::setPluginsState(const AudioResourceIdList& resourceIds, AudioPluginState state)
+Ret KnownAudioPluginsRegister::setPluginsState(const PluginResourceIdList& resourceIds, AudioPluginState state)
 {
     IF_ASSERT_FAILED(m_loaded) {
         return false;
@@ -273,7 +273,7 @@ Ret KnownAudioPluginsRegister::setPluginsState(const AudioResourceIdList& resour
     }
 
     bool changed = false;
-    for (const AudioResourceId& resourceId : resourceIds) {
+    for (const PluginResourceId& resourceId : resourceIds) {
         auto range = m_pluginInfoMap.equal_range(resourceId);
         for (auto it = range.first; it != range.second; ++it) {
             if (it->second.state != state) {
@@ -290,7 +290,7 @@ Ret KnownAudioPluginsRegister::setPluginsState(const AudioResourceIdList& resour
     return writePluginsInfo();
 }
 
-Ret KnownAudioPluginsRegister::unregisterPlugins(const AudioResourceIdList& resourceIds)
+Ret KnownAudioPluginsRegister::unregisterPlugins(const PluginResourceIdList& resourceIds)
 {
     IF_ASSERT_FAILED(m_loaded) {
         return false;
@@ -302,7 +302,7 @@ Ret KnownAudioPluginsRegister::unregisterPlugins(const AudioResourceIdList& reso
 
     bool changed = false;
 
-    for (const AudioResourceId& resourceId : resourceIds) {
+    for (const PluginResourceId& resourceId : resourceIds) {
         if (!exists(resourceId)) {
             continue;
         }
@@ -355,7 +355,7 @@ Ret KnownAudioPluginsRegister::writePluginsInfo()
 
     JsonArray array;
 
-    const AudioResourceAttributes& runtimeOnly = configuration()->runtimeAttributeDefaults();
+    const PluginAttributes& runtimeOnly = configuration()->runtimeAttributeDefaults();
 
     for (const auto& pair : m_pluginInfoMap) {
         const AudioPluginInfo& info = pair.second;

@@ -34,15 +34,15 @@ public:
     MOCK_METHOD(AudioPluginInfoList, pluginInfoList, (PluginInfoAccepted), (const, override));
     MOCK_METHOD(async::Notification, pluginInfoListChanged, (), (const, override));
 
-    MOCK_METHOD(const io::path_t&, pluginPath, (const AudioResourceId&), (const, override));
+    MOCK_METHOD(const io::path_t&, pluginPath, (const PluginResourceId&), (const, override));
 
     MOCK_METHOD(bool, exists, (const io::path_t&), (const, override));
-    MOCK_METHOD(bool, exists, (const AudioResourceId&), (const, override));
+    MOCK_METHOD(bool, exists, (const PluginResourceId&), (const, override));
 
     MOCK_METHOD(Ret, registerPlugins, (const AudioPluginInfoList&), (override));
-    MOCK_METHOD(Ret, unregisterPlugins, (const AudioResourceIdList&), (override));
+    MOCK_METHOD(Ret, unregisterPlugins, (const PluginResourceIdList&), (override));
 
-    MOCK_METHOD(Ret, setPluginsState, (const AudioResourceIdList&, AudioPluginState), (override));
+    MOCK_METHOD(Ret, setPluginsState, (const PluginResourceIdList&, AudioPluginState), (override));
 
     MOCK_METHOD(Ret, removePluginsAtPath, (const io::path_t&), (override));
 };

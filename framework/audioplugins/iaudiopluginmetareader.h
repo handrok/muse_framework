@@ -32,9 +32,9 @@ class IAudioPluginMetaReader
 public:
     virtual ~IAudioPluginMetaReader() = default;
 
-    virtual AudioResourceType metaType() const = 0;
+    virtual PluginType metaType() const = 0;
     virtual bool canReadMeta(const io::path_t& pluginPath) const = 0;
-    virtual RetVal<AudioResourceMetaList> readMeta(const io::path_t& pluginPath) const = 0;
+    virtual RetVal<PluginMetaList> readMeta(const io::path_t& pluginPath) const = 0;
 };
 
 using IAudioPluginMetaReaderPtr = std::shared_ptr<IAudioPluginMetaReader>;

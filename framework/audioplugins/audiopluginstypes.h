@@ -31,19 +31,19 @@
 #include "global/types/string.h"
 
 namespace muse::audioplugins {
-using AudioResourceId = std::string;
-using AudioResourceIdList = std::vector<AudioResourceId>;
-using AudioResourceVendor = std::string;
-using AudioResourceAttributes = std::map<String, String>;
+using PluginResourceId = std::string;
+using PluginResourceIdList = std::vector<PluginResourceId>;
+using PluginVendor = std::string;
+using PluginAttributes = std::map<String, String>;
 
 // Opaque app-defined plugin format identifier; the framework stores it verbatim.
-using AudioResourceType = std::string;
+using PluginType = std::string;
 
-struct AudioResourceMeta {
-    AudioResourceId id;
-    AudioResourceVendor vendor;
-    AudioResourceAttributes attributes;
-    AudioResourceType type;
+struct PluginMeta {
+    PluginResourceId id;
+    PluginVendor vendor;
+    PluginAttributes attributes;
+    PluginType type;
 
     const String& attributeVal(const String& key) const
     {
@@ -63,7 +63,7 @@ struct AudioResourceMeta {
                && !type.empty();
     }
 
-    bool operator==(const AudioResourceMeta& other) const
+    bool operator==(const PluginMeta& other) const
     {
         return id == other.id
                && vendor == other.vendor
@@ -71,23 +71,23 @@ struct AudioResourceMeta {
                && attributes == other.attributes;
     }
 
-    bool operator!=(const AudioResourceMeta& other) const
+    bool operator!=(const PluginMeta& other) const
     {
         return !(*this == other);
     }
 
-    bool operator<(const AudioResourceMeta& other) const
+    bool operator<(const PluginMeta& other) const
     {
         return std::tie(id, vendor, type, attributes)
                < std::tie(other.id, other.vendor, other.type, other.attributes);
     }
 };
 
-using AudioResourceMetaList = std::vector<AudioResourceMeta>;
-using AudioResourceMetaSet = std::set<AudioResourceMeta>;
+using PluginMetaList = std::vector<PluginMeta>;
+using PluginMetaSet = std::set<PluginMeta>;
 
 // Typed accessors over the string-encoded attributes ("true"/"1" -> true).
-inline bool boolAttribute(const AudioResourceMeta& meta, const String& key, bool fallback = false)
+inline bool boolAttribute(const PluginMeta& meta, const String& key, bool fallback = false)
 {
     const String& v = meta.attributeVal(key);
     if (v.empty()) {
@@ -96,7 +96,7 @@ inline bool boolAttribute(const AudioResourceMeta& meta, const String& key, bool
     return v == u"true" || v == u"1";
 }
 
-inline int intAttribute(const AudioResourceMeta& meta, const String& key, int fallback = 0)
+inline int intAttribute(const PluginMeta& meta, const String& key, int fallback = 0)
 {
     const String& v = meta.attributeVal(key);
     if (v.empty()) {
@@ -151,7 +151,7 @@ inline AudioPluginState audioPluginStateFromName(const std::string& name)
 }
 
 struct AudioPluginInfo {
-    AudioResourceMeta meta;
+    PluginMeta meta;
     io::path_t path;
     AudioPluginState state = AudioPluginState::Undefined;
     int errorCode = 0;

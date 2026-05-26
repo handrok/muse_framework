@@ -290,14 +290,14 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Mark
     }
 
     // [THEN] Uninstalled plugins transition to Missing (kept in cache)
-    AudioResourceIdList uninstalledPluginIdList {
+    PluginResourceIdList uninstalledPluginIdList {
         knownPlugins[0].meta.id, knownPlugins[1].meta.id
     };
 
     EXPECT_CALL(*m_knownPlugins, setPluginsState(uninstalledPluginIdList, AudioPluginState::Missing))
     .WillOnce(Return(make_ok()));
 
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(AudioResourceIdList {}, AudioPluginState::Validated))
+    EXPECT_CALL(*m_knownPlugins, setPluginsState(PluginResourceIdList {}, AudioPluginState::Validated))
     .WillOnce(Return(make_ok()));
 
     EXPECT_CALL(*m_knownPlugins, unregisterPlugins(_))
@@ -347,9 +347,9 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Redi
     }
 
     // [THEN] Only AAA gets transitioned back to Validated
-    AudioResourceIdList rediscoveredIds { knownPlugins[0].meta.id };
+    PluginResourceIdList rediscoveredIds { knownPlugins[0].meta.id };
 
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(AudioResourceIdList {}, AudioPluginState::Missing))
+    EXPECT_CALL(*m_knownPlugins, setPluginsState(PluginResourceIdList {}, AudioPluginState::Missing))
     .WillOnce(Return(make_ok()));
 
     EXPECT_CALL(*m_knownPlugins, setPluginsState(rediscoveredIds, AudioPluginState::Validated))
@@ -364,7 +364,7 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Redi
 
 TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_MultiPluginBinaryMarksEveryIdMissing)
 {
-    auto createPluginInfo = [](const io::path_t& path, const AudioResourceId& id, AudioPluginState state) {
+    auto createPluginInfo = [](const io::path_t& path, const PluginResourceId& id, AudioPluginState state) {
         AudioPluginInfo info;
         info.meta.id = id;
         info.meta.type = "VstPlugin";
@@ -398,11 +398,11 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Mult
 
     // [THEN] BOTH ids hosted by the missing binary transition to Missing — not
     // just the last one (regression guard for per-path multi-id tracking).
-    AudioResourceIdList expectedMissing { "Shell FxA", "Shell FxB" };
+    PluginResourceIdList expectedMissing { "Shell FxA", "Shell FxB" };
 
     EXPECT_CALL(*m_knownPlugins, setPluginsState(expectedMissing, AudioPluginState::Missing))
     .WillOnce(Return(make_ok()));
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(AudioResourceIdList {}, AudioPluginState::Validated))
+    EXPECT_CALL(*m_knownPlugins, setPluginsState(PluginResourceIdList {}, AudioPluginState::Validated))
     .WillOnce(Return(make_ok()));
 
     EXPECT_CALL(*m_knownPlugins, load())
@@ -414,7 +414,7 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Mult
 
 TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_MultiPluginBinaryRediscoversEveryId)
 {
-    auto createPluginInfo = [](const io::path_t& path, const AudioResourceId& id, AudioPluginState state) {
+    auto createPluginInfo = [](const io::path_t& path, const PluginResourceId& id, AudioPluginState state) {
         AudioPluginInfo info;
         info.meta.id = id;
         info.meta.type = "VstPlugin";
@@ -445,9 +445,9 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Mult
     }
 
     // [THEN] BOTH ids transition back to Validated — not just the last one.
-    AudioResourceIdList expectedRediscovered { "Shell FxA", "Shell FxB" };
+    PluginResourceIdList expectedRediscovered { "Shell FxA", "Shell FxB" };
 
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(AudioResourceIdList {}, AudioPluginState::Missing))
+    EXPECT_CALL(*m_knownPlugins, setPluginsState(PluginResourceIdList {}, AudioPluginState::Missing))
     .WillOnce(Return(make_ok()));
     EXPECT_CALL(*m_knownPlugins, setPluginsState(expectedRediscovered, AudioPluginState::Validated))
     .WillOnce(Return(make_ok()));
@@ -492,9 +492,9 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Left
     // placeholder and re-validated via subprocess. It is NOT marked Missing
     // (it's still on disk) and it is NOT considered "rediscovered" (that's
     // for paths transitioning out of Missing).
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(AudioResourceIdList {}, AudioPluginState::Missing))
+    EXPECT_CALL(*m_knownPlugins, setPluginsState(PluginResourceIdList {}, AudioPluginState::Missing))
     .WillOnce(Return(make_ok()));
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(AudioResourceIdList {}, AudioPluginState::Validated))
+    EXPECT_CALL(*m_knownPlugins, setPluginsState(PluginResourceIdList {}, AudioPluginState::Validated))
     .WillOnce(Return(make_ok()));
 
     // [THEN] registerNewPlugins writes a Discovered placeholder for the path
@@ -534,14 +534,14 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterPlugin)
     // [GIVEN] Some plugin we want to register
     path_t pluginPath = "/some/test/path/to/plugin/AAA.vst3";
 
-    AudioResourceMetaList metaList;
+    PluginMetaList metaList;
 
-    AudioResourceMeta pluginMeta1;
+    PluginMeta pluginMeta1;
     pluginMeta1.id = "Mono plugin";
     pluginMeta1.attributes.insert({ String(u"categories"), u"Fx|Mono" });
     metaList.push_back(pluginMeta1);
 
-    AudioResourceMeta pluginMeta2;
+    PluginMeta pluginMeta2;
     pluginMeta2.id = "Stereo plugin";
     pluginMeta2.attributes.insert({ String(u"categories"), u"Fx|Stereo" });
     metaList.push_back(pluginMeta2);
@@ -551,13 +551,13 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterPlugin)
     ASSERT_TRUE(mock);
 
     ON_CALL(*mock, readMeta(pluginPath))
-    .WillByDefault(Return(RetVal<AudioResourceMetaList>::make_ok(metaList)));
+    .WillByDefault(Return(RetVal<PluginMetaList>::make_ok(metaList)));
 
     // [THEN] The plugin has been registered
     AudioPluginInfoList expectedInfoList;
     expectedInfoList.reserve(metaList.size());
 
-    for (const AudioResourceMeta& meta : metaList) {
+    for (const PluginMeta& meta : metaList) {
         AudioPluginInfo expectedPluginInfo;
         expectedPluginInfo.meta = meta;
         expectedPluginInfo.path = pluginPath;

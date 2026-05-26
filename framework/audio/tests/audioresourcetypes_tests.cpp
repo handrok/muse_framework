@@ -24,11 +24,17 @@
 // pragma-pack matches rpcpacker_tests.cpp to avoid an ODR segfault at static init.
 #pragma pack(push, 1)
 #include "audio/common/audiotypes.h"
+#include "audioplugins/audiopluginstypes.h"
 #include "musesampler/musesamplertypes.h"
 #include "vst/vstpluginattrs.h"
 #pragma pack(pop)
 
 using namespace muse;
+
+static_assert(std::is_same_v<audio::AudioResourceId, std::string>);
+static_assert(std::is_same_v<audioplugins::PluginResourceId, std::string>);
+
+static_assert(!std::is_same_v<audio::AudioResourceMeta, audioplugins::PluginMeta>);
 
 TEST(Audio_AudioResourceTypes, WireStringsAreCanonical)
 {
@@ -71,7 +77,7 @@ TEST(Audio_AudioResourceTypes, ResourceTypeFromStringRejectsUnknown)
 
 TEST(Audio_AudioResourceTypes, IsResourceTypeHelper)
 {
-    audioplugins::AudioResourceMeta meta;
+    audio::AudioResourceMeta meta;
     meta.type = vst::AUDIO_RESOURCE_TYPE_NAME;
     EXPECT_TRUE(audio::isResourceType(meta, audio::AudioResourceType::VstPlugin));
     EXPECT_FALSE(audio::isResourceType(meta, audio::AudioResourceType::FluidSoundfont));
@@ -79,4 +85,19 @@ TEST(Audio_AudioResourceTypes, IsResourceTypeHelper)
     meta.type = "AudioUnit";
     EXPECT_FALSE(audio::isResourceType(meta, audio::AudioResourceType::VstPlugin));
     EXPECT_TRUE(audio::isResourceType(meta, audio::AudioResourceType::Undefined));
+}
+
+TEST(Audio_AudioResourceTypes, ToAudioResourceIdRoundTrips)
+{
+    const audioplugins::PluginResourceId plugId = "Muse Reverb";
+    const audio::AudioResourceId audioId = audio::toAudioResourceId(plugId);
+    EXPECT_EQ(audioId, plugId);
+    EXPECT_EQ(audioId, "Muse Reverb");
+
+    const audioplugins::PluginResourceIdList plugIds = { "A", "B", "C" };
+    const audio::AudioResourceIdList audioIds = audio::toAudioResourceIdList(plugIds);
+    ASSERT_EQ(audioIds.size(), plugIds.size());
+    for (size_t i = 0; i < plugIds.size(); ++i) {
+        EXPECT_EQ(audioIds[i], plugIds[i]);
+    }
 }

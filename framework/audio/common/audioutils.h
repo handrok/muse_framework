@@ -37,7 +37,7 @@ inline AudioResourceMeta makeReverbMeta()
     return meta;
 }
 
-inline String audioResourceTypeToString(const muse::audioplugins::AudioResourceType& metaType)
+inline String audioResourceTypeToString(const muse::audioplugins::PluginType& metaType)
 {
     AudioResourceType type = resourceTypeFromString(metaType);
     auto search = RESOURCE_TYPE_MAP.find(type);
@@ -110,6 +110,6 @@ inline AudioFxCategories audioFxCategoriesFromString(const String& str)
 
 inline bool isOnlineAudioResource(const AudioResourceMeta& meta)
 {
-    return muse::audioplugins::boolAttribute(meta, u"isOnline");
+    return boolAttribute(meta, u"isOnline");
 }
 }

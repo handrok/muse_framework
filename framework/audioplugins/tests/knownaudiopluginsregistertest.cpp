@@ -62,7 +62,7 @@ protected:
         ON_CALL(*m_configuration, knownAudioPluginsFilePath())
         .WillByDefault(Return(m_knownAudioPluginsFilePath));
 
-        m_runtimeDefaults = AudioResourceAttributes { { kRuntimeAttrKey, kRuntimeAttrValue } };
+        m_runtimeDefaults = PluginAttributes { { kRuntimeAttrKey, kRuntimeAttrValue } };
         ON_CALL(*m_configuration, runtimeAttributeDefaults())
         .WillByDefault(ReturnRef(m_runtimeDefaults));
 
@@ -72,7 +72,7 @@ protected:
 
     ByteArray pluginInfoListToJson(const std::vector<AudioPluginInfo>& infoList) const
     {
-        const std::map<AudioResourceType, std::string> RESOURCE_TYPE_TO_STR {
+        const std::map<PluginType, std::string> RESOURCE_TYPE_TO_STR {
             { "VstPlugin", "VstPlugin" },
         };
 
@@ -169,7 +169,7 @@ protected:
     std::shared_ptr<KnownAudioPluginsMigrationRegisterMock> m_migrations;
 
     path_t m_knownAudioPluginsFilePath;
-    AudioResourceAttributes m_runtimeDefaults;
+    PluginAttributes m_runtimeDefaults;
 };
 
 inline bool operator==(const AudioPluginInfo& info1, const AudioPluginInfo& info2)
@@ -210,7 +210,7 @@ TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, PluginInfoList)
 
     // [THEN] Make sure that exists() does not always return true
     EXPECT_FALSE(m_knownPlugins->exists(path_t("/path/to/nonexistent/plugin.vst3")));
-    EXPECT_FALSE(m_knownPlugins->exists(AudioResourceId("nonexistent_plugin")));
+    EXPECT_FALSE(m_knownPlugins->exists(PluginResourceId("nonexistent_plugin")));
 
     // [GIVEN] New plugin for registration
     AudioPluginInfo newPluginInfo;
@@ -386,7 +386,7 @@ TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, Load_LegacyArrayFormat)
 
     // [THEN] Plugins parsed successfully
     EXPECT_TRUE(ret);
-    EXPECT_TRUE(m_knownPlugins->exists(AudioResourceId("AAA")));
+    EXPECT_TRUE(m_knownPlugins->exists(PluginResourceId("AAA")));
 }
 
 TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, Load_MalformedRow_RejectsFile)

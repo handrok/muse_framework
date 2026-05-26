@@ -57,7 +57,7 @@ PluginScanResult RegisterAudioPluginsScenario::scanPlugins(Progress* progress) c
     PluginScanResult result;
 
     struct CacheEntry {
-        AudioResourceId id;
+        PluginResourceId id;
         AudioPluginState state;
     };
     // A single binary path can host several plugin IDs (shell / multi-effect
@@ -184,7 +184,7 @@ Ret RegisterAudioPluginsScenario::persistDiscoveredPlaceholders(const io::paths_
     return knownPluginsRegister()->registerPlugins(placeholders);
 }
 
-Ret RegisterAudioPluginsScenario::unregisterRemovedPlugins(const AudioResourceIdList& pluginIds)
+Ret RegisterAudioPluginsScenario::unregisterRemovedPlugins(const PluginResourceIdList& pluginIds)
 {
     TRACEFUNC;
 
@@ -263,7 +263,7 @@ Ret RegisterAudioPluginsScenario::registerPlugin(const io::path_t& pluginPath)
         return make_ret(Err::UnknownPluginType);
     }
 
-    const RetVal<AudioResourceMetaList> metaList = reader->readMeta(pluginPath);
+    const RetVal<PluginMetaList> metaList = reader->readMeta(pluginPath);
     if (!metaList.ret) {
         LOGE() << metaList.ret.toString();
         return metaList.ret;
@@ -272,7 +272,7 @@ Ret RegisterAudioPluginsScenario::registerPlugin(const io::path_t& pluginPath)
     AudioPluginInfoList infoList;
     infoList.reserve(metaList.val.size());
 
-    for (const AudioResourceMeta& meta : metaList.val) {
+    for (const PluginMeta& meta : metaList.val) {
         AudioPluginInfo info;
         info.meta = meta;
         info.path = pluginPath;
@@ -322,8 +322,8 @@ IAudioPluginMetaReaderPtr RegisterAudioPluginsScenario::metaReader(const io::pat
     return nullptr;
 }
 
-audioplugins::AudioResourceType RegisterAudioPluginsScenario::metaType(const io::path_t& pluginPath) const
+audioplugins::PluginType RegisterAudioPluginsScenario::metaType(const io::path_t& pluginPath) const
 {
     const IAudioPluginMetaReaderPtr reader = metaReader(pluginPath);
-    return reader ? reader->metaType() : audioplugins::AudioResourceType();
+    return reader ? reader->metaType() : audioplugins::PluginType();
 }

@@ -44,15 +44,15 @@ public:
     virtual AudioPluginInfoList pluginInfoList(PluginInfoAccepted accepted = PluginInfoAccepted()) const = 0;
     virtual muse::async::Notification pluginInfoListChanged() const = 0;
 
-    virtual const io::path_t& pluginPath(const AudioResourceId& resourceId) const = 0;
+    virtual const io::path_t& pluginPath(const PluginResourceId& resourceId) const = 0;
 
     virtual bool exists(const io::path_t& pluginPath) const = 0;
-    virtual bool exists(const AudioResourceId& resourceId) const = 0;
+    virtual bool exists(const PluginResourceId& resourceId) const = 0;
 
     virtual Ret registerPlugins(const AudioPluginInfoList& list) = 0;
-    virtual Ret unregisterPlugins(const AudioResourceIdList& resourceIds) = 0;
+    virtual Ret unregisterPlugins(const PluginResourceIdList& resourceIds) = 0;
 
-    virtual Ret setPluginsState(const AudioResourceIdList& resourceIds, AudioPluginState state) = 0;
+    virtual Ret setPluginsState(const PluginResourceIdList& resourceIds, AudioPluginState state) = 0;
 
     // Erase every entry whose `path` matches. Used to clear a Discovered
     // placeholder before its (re)validation result is written, so a
