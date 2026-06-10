@@ -54,7 +54,7 @@ public:
     Ret registerPlugins(const AudioPluginInfoList& list) override;
     Ret unregisterPlugins(const PluginResourceIdList& resourceIds) override;
 
-    Ret setPluginsState(const PluginResourceIdList& resourceIds, AudioPluginState state) override;
+    Ret setPluginsState(const io::paths_t& paths, AudioPluginState state) override;
 
     Ret removePluginsAtPath(const io::path_t& path) override;
 

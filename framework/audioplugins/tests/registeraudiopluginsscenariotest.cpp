@@ -290,14 +290,11 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Mark
     }
 
     // [THEN] Uninstalled plugins transition to Missing (kept in cache)
-    PluginResourceIdList uninstalledPluginIdList {
-        knownPlugins[0].meta.id, knownPlugins[1].meta.id
+    paths_t uninstalledPluginPaths {
+        knownPlugins[0].path, knownPlugins[1].path
     };
 
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(uninstalledPluginIdList, AudioPluginState::Missing))
-    .WillOnce(Return(make_ok()));
-
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(PluginResourceIdList {}, AudioPluginState::Validated))
+    EXPECT_CALL(*m_knownPlugins, setPluginsState(uninstalledPluginPaths, AudioPluginState::Missing))
     .WillOnce(Return(make_ok()));
 
     EXPECT_CALL(*m_knownPlugins, unregisterPlugins(_))
@@ -313,7 +310,7 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Mark
     EXPECT_TRUE(ret);
 }
 
-TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_RediscoverFormerlyMissing)
+TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, ScanPlugins_FormerlyMissingFoundAgainIsRevalidated)
 {
     auto createPluginInfo = [](const io::path_t& path, AudioPluginState state) {
         AudioPluginInfo info;
@@ -324,7 +321,7 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Redi
         return info;
     };
 
-    // [GIVEN] One Missing entry that gets reinstalled, one untouched Validated entry
+    // [GIVEN] One Missing entry that reappears, one untouched Validated entry
     AudioPluginInfoList knownPlugins;
     knownPlugins.push_back(createPluginInfo("/some/path/AAA.vst3", AudioPluginState::Missing));
     knownPlugins.push_back(createPluginInfo("/some/path/BBB.vst3", AudioPluginState::Validated));
@@ -346,23 +343,17 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Redi
         .WillByDefault(Return(foundPluginPaths));
     }
 
-    // [THEN] Only AAA gets transitioned back to Validated
-    PluginResourceIdList rediscoveredIds { knownPlugins[0].meta.id };
+    // [WHEN] Scanning
+    const PluginScanResult result = m_scenario->scanPlugins();
 
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(PluginResourceIdList {}, AudioPluginState::Missing))
-    .WillOnce(Return(make_ok()));
-
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(rediscoveredIds, AudioPluginState::Validated))
-    .WillOnce(Return(make_ok()));
-
-    EXPECT_CALL(*m_knownPlugins, load())
-    .WillOnce(Return(muse::make_ok()));
-
-    Ret ret = m_scenario->updatePluginsRegistry();
-    EXPECT_TRUE(ret);
+    // [THEN] The reappeared plugin is re-validated rather than trusted back
+    // to Validated; the untouched Validated plugin is left alone.
+    EXPECT_TRUE(muse::contains(result.newPluginPaths, path_t("/some/path/AAA.vst3")));
+    EXPECT_FALSE(muse::contains(result.newPluginPaths, path_t("/some/path/BBB.vst3")));
+    EXPECT_TRUE(result.missingPluginPaths.empty());
 }
 
-TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_MultiPluginBinaryMarksEveryIdMissing)
+TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_MissingMultiPluginBinaryReportedOnceByPath)
 {
     auto createPluginInfo = [](const io::path_t& path, const PluginResourceId& id, AudioPluginState state) {
         AudioPluginInfo info;
@@ -396,13 +387,11 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Mult
         .WillByDefault(Return(foundPluginPaths));
     }
 
-    // [THEN] BOTH ids hosted by the missing binary transition to Missing — not
-    // just the last one (regression guard for per-path multi-id tracking).
-    PluginResourceIdList expectedMissing { "Shell FxA", "Shell FxB" };
+    // [THEN] The vanished binary is reported once by path; flipping every id
+    // under it is the register's job.
+    paths_t expectedMissing { shellPath };
 
     EXPECT_CALL(*m_knownPlugins, setPluginsState(expectedMissing, AudioPluginState::Missing))
-    .WillOnce(Return(make_ok()));
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(PluginResourceIdList {}, AudioPluginState::Validated))
     .WillOnce(Return(make_ok()));
 
     EXPECT_CALL(*m_knownPlugins, load())
@@ -412,7 +401,7 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Mult
     EXPECT_TRUE(ret);
 }
 
-TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_MultiPluginBinaryRediscoversEveryId)
+TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, ScanPlugins_FormerlyMissingMultiIdBinaryQueuedOnce)
 {
     auto createPluginInfo = [](const io::path_t& path, const PluginResourceId& id, AudioPluginState state) {
         AudioPluginInfo info;
@@ -444,25 +433,18 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Mult
         .WillByDefault(Return(foundPluginPaths));
     }
 
-    // [THEN] BOTH ids transition back to Validated — not just the last one.
-    PluginResourceIdList expectedRediscovered { "Shell FxA", "Shell FxB" };
+    // [WHEN] Scanning
+    const PluginScanResult result = m_scenario->scanPlugins();
 
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(PluginResourceIdList {}, AudioPluginState::Missing))
-    .WillOnce(Return(make_ok()));
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(expectedRediscovered, AudioPluginState::Validated))
-    .WillOnce(Return(make_ok()));
-
-    EXPECT_CALL(*m_knownPlugins, load())
-    .WillOnce(Return(make_ok()));
-
-    Ret ret = m_scenario->updatePluginsRegistry();
-    EXPECT_TRUE(ret);
+    // [THEN] The reappeared binary is queued once for re-validation; nothing
+    // is trusted back to Validated, nothing is left Missing.
+    EXPECT_EQ(result.newPluginPaths, paths_t { shellPath });
+    EXPECT_TRUE(result.missingPluginPaths.empty());
 }
 
 TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_LeftoverDiscoveredRevalidates)
 {
-    // [GIVEN] A Discovered entry from a previous scan that didn't complete
-    // (host crashed mid-validation). The scanner still sees the path on disk.
+    // [GIVEN] A leftover Discovered entry; the scanner still sees the path on disk
     auto createPluginInfo = [](const io::path_t& path, AudioPluginState state) {
         AudioPluginInfo info;
         info.meta.id = io::completeBasename(path).toStdString();
@@ -490,11 +472,8 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Left
 
     // [THEN] The Discovered path is treated as new — registered as a fresh
     // placeholder and re-validated via subprocess. It is NOT marked Missing
-    // (it's still on disk) and it is NOT considered "rediscovered" (that's
-    // for paths transitioning out of Missing).
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(PluginResourceIdList {}, AudioPluginState::Missing))
-    .WillOnce(Return(make_ok()));
-    EXPECT_CALL(*m_knownPlugins, setPluginsState(PluginResourceIdList {}, AudioPluginState::Validated))
+    // (it's still on disk).
+    EXPECT_CALL(*m_knownPlugins, setPluginsState(paths_t {}, AudioPluginState::Missing))
     .WillOnce(Return(make_ok()));
 
     // [THEN] registerNewPlugins writes a Discovered placeholder for the path
@@ -683,4 +662,31 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterNewPlugins_NoPerIt
 
     // [WHEN] Register with validation enabled
     EXPECT_TRUE(m_scenario->registerNewPlugins(paths, /*validate*/ true));
+}
+
+TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterNewPlugins_TrailingSlashPathGetsNonEmptyId)
+{
+    // [GIVEN] An LV2 "<uri>@<bundle>/" composite path: completeBasename() is
+    // empty, and load() would reject a row with an empty id.
+    const path_t lv2Path = "http://calf.sourceforge.net/plugins/Analyzer@file:///usr/lib/lv2/calf.lv2/";
+    paths_t paths { lv2Path };
+
+    ON_CALL(*m_knownPlugins, removePluginsAtPath(_))
+    .WillByDefault(Return(make_ok()));
+    ON_CALL(*m_knownPlugins, load())
+    .WillByDefault(Return(make_ok()));
+
+    // [THEN] Capture the persisted Discovered placeholder
+    AudioPluginInfoList persisted;
+    EXPECT_CALL(*m_knownPlugins, registerPlugins(_))
+    .WillOnce(::testing::DoAll(::testing::SaveArg<0>(&persisted), Return(make_ok())));
+
+    // [WHEN] Register with validation deferred (persistDiscoveredPlaceholders only)
+    EXPECT_TRUE(m_scenario->registerNewPlugins(paths, /*validate*/ false));
+
+    // [THEN] The placeholder id falls back to the full path, not empty
+    ASSERT_EQ(persisted.size(), size_t(1));
+    EXPECT_FALSE(persisted.front().meta.id.empty());
+    EXPECT_EQ(persisted.front().meta.id, lv2Path.toStdString());
+    EXPECT_EQ(persisted.front().state, AudioPluginState::Discovered);
 }

@@ -326,6 +326,38 @@ TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, RegisterPlugins_SameIdDiffere
     EXPECT_EQ(m_knownPlugins->pluginInfoList().size(), 2u);
 }
 
+TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, SetPluginsState_MarksEveryEntryUnderPath)
+{
+    // State changes are keyed by path: a vanished binary flips every id it
+    // hosts, the same id installed at another path is left alone.
+    ON_CALL(*m_fileSystem, writeFile(_, _))
+    .WillByDefault(Return(muse::make_ok()));
+
+    ASSERT_TRUE(m_knownPlugins->load());
+
+    AudioPluginInfo shellA;
+    shellA.meta.id = "Shell FxA";
+    shellA.meta.type = "VstPlugin";
+    shellA.path = "/some/path/SHELL.vst3";
+    shellA.state = AudioPluginState::Validated;
+
+    AudioPluginInfo shellB = shellA;
+    shellB.meta.id = "Shell FxB";
+
+    AudioPluginInfo copyA = shellA;
+    copyA.path = "/another/path/SHELL.vst3";
+
+    ASSERT_TRUE(m_knownPlugins->registerPlugins({ shellA, shellB, copyA }));
+
+    ASSERT_TRUE(m_knownPlugins->setPluginsState({ shellA.path }, AudioPluginState::Missing));
+
+    for (const AudioPluginInfo& plugin : m_knownPlugins->pluginInfoList()) {
+        const AudioPluginState expected = plugin.path == shellA.path
+                                          ? AudioPluginState::Missing : AudioPluginState::Validated;
+        EXPECT_EQ(plugin.state, expected) << plugin.path.toStdString() << " " << plugin.meta.id;
+    }
+}
+
 TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, Load_MigrationFailure_LeavesRegisterEmpty)
 {
     // A cache file from a future version (or with a missing migrator) makes
@@ -389,16 +421,30 @@ TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, Load_LegacyArrayFormat)
     EXPECT_TRUE(m_knownPlugins->exists(PluginResourceId("AAA")));
 }
 
-TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, Load_MalformedRow_RejectsFile)
+TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, Load_MalformedRow_SkippedKeepsValidRows)
 {
-    // [GIVEN] A versioned cache whose single row has no `meta` — a truncated
-    // entry that yields an empty id and would poison m_pluginInfoMap.
-    JsonObject rowObj;
-    rowObj.set("path", std::string("/some/path/AAA.vst3"));
-    // no "meta"
+    // [GIVEN] A cache with one valid row and one row with an empty id (older
+    // builds persisted LV2 entries this way); the bad row must be skipped,
+    // not abort the whole load.
+    JsonObject goodMeta;
+    goodMeta.set("id", std::string("AAA"));
+    goodMeta.set("type", std::string("VstPlugin"));
+    JsonObject goodRow;
+    goodRow.set("meta", goodMeta);
+    goodRow.set("path", std::string("/some/path/AAA.vst3"));
+    goodRow.set("state", audioPluginStateName(AudioPluginState::Validated));
+
+    JsonObject badMeta;
+    badMeta.set("id", std::string(""));
+    badMeta.set("type", std::string("Lv2Plugin"));
+    JsonObject badRow;
+    badRow.set("meta", badMeta);
+    badRow.set("path", std::string("http://x/plugin@file:///usr/lib/lv2/x.lv2/"));
+    badRow.set("state", audioPluginStateName(AudioPluginState::Discovered));
 
     JsonArray plugins;
-    plugins << rowObj;
+    plugins << goodRow;
+    plugins << badRow;
 
     JsonObject root;
     root.set("version", CURRENT_KNOWN_AUDIO_PLUGINS_VERSION);
@@ -417,7 +463,9 @@ TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, Load_MalformedRow_RejectsFile
     // [WHEN] Loading
     Ret ret = m_knownPlugins->load();
 
-    // [THEN] The malformed row is rejected and the register left empty.
-    EXPECT_FALSE(ret);
-    EXPECT_TRUE(m_knownPlugins->pluginInfoList().empty());
+    // [THEN] Load succeeds, the malformed row is skipped, the valid row remains.
+    EXPECT_TRUE(ret);
+    AudioPluginInfoList list = m_knownPlugins->pluginInfoList();
+    ASSERT_EQ(list.size(), size_t(1));
+    EXPECT_EQ(list.front().meta.id, "AAA");
 }

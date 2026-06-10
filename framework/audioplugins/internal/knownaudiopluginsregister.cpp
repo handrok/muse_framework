@@ -167,13 +167,13 @@ Ret KnownAudioPluginsRegister::load()
         info.state = audioPluginStateFromName(object.value("state").toStdString());
         info.errorCode = object.value("errorCode").toInt();
 
-        // `id` and `path` are the register's lookup keys — a row missing
-        // either (e.g. a truncated `meta`) would poison m_pluginInfoMap with
-        // an empty-key record. Reject the whole file, as with a bad envelope.
+        // `id` and `path` are the lookup keys; a row missing either would poison
+        // m_pluginInfoMap with an empty-key record. Skip just that row — aborting
+        // the load leaves m_loaded false and trips asserts in the next scan.
         if (info.meta.id.empty() || info.path.empty()) {
-            LOGE() << "Malformed known-audio-plugins entry at "
+            LOGW() << "Skipping malformed known-audio-plugins entry at "
                    << knownAudioPluginsPath << " (missing id or path)";
-            return Ret(static_cast<int>(Ret::Code::UnknownError), "Malformed known_audio_plugins.json entry");
+            continue;
         }
 
         m_pluginPaths.insert(info.path);
@@ -262,24 +262,21 @@ Ret KnownAudioPluginsRegister::registerPlugins(const AudioPluginInfoList& list)
     return make_ok();
 }
 
-Ret KnownAudioPluginsRegister::setPluginsState(const PluginResourceIdList& resourceIds, AudioPluginState state)
+Ret KnownAudioPluginsRegister::setPluginsState(const io::paths_t& paths, AudioPluginState state)
 {
     IF_ASSERT_FAILED(m_loaded) {
         return false;
     }
 
-    if (resourceIds.empty()) {
+    if (paths.empty()) {
         return make_ok();
     }
 
     bool changed = false;
-    for (const PluginResourceId& resourceId : resourceIds) {
-        auto range = m_pluginInfoMap.equal_range(resourceId);
-        for (auto it = range.first; it != range.second; ++it) {
-            if (it->second.state != state) {
-                it->second.state = state;
-                changed = true;
-            }
+    for (auto it = m_pluginInfoMap.begin(); it != m_pluginInfoMap.end(); ++it) {
+        if (it->second.state != state && muse::contains(paths, it->second.path)) {
+            it->second.state = state;
+            changed = true;
         }
     }
 

@@ -31,9 +31,8 @@
 
 namespace muse::audioplugins {
 struct PluginScanResult {
-    io::paths_t newPluginPaths;            // not in cache; will be inserted via subprocess validation
-    PluginResourceIdList missingPluginIds;  // in cache but not currently found by any scanner
-    PluginResourceIdList rediscoveredPluginIds; // previously Missing entries the scanner found again
+    io::paths_t newPluginPaths;      // not in cache, or back after Missing; validated via subprocess
+    io::paths_t missingPluginPaths;  // in cache but not found by any scanner
 };
 
 class IRegisterAudioPluginsScenario : MODULE_CONTEXT_INTERFACE

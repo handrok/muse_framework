@@ -42,7 +42,7 @@ public:
     MOCK_METHOD(Ret, registerPlugins, (const AudioPluginInfoList&), (override));
     MOCK_METHOD(Ret, unregisterPlugins, (const PluginResourceIdList&), (override));
 
-    MOCK_METHOD(Ret, setPluginsState, (const PluginResourceIdList&, AudioPluginState), (override));
+    MOCK_METHOD(Ret, setPluginsState, (const io::paths_t&, AudioPluginState), (override));
 
     MOCK_METHOD(Ret, removePluginsAtPath, (const io::path_t&), (override));
 };

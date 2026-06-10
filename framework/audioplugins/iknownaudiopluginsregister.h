@@ -52,7 +52,7 @@ public:
     virtual Ret registerPlugins(const AudioPluginInfoList& list) = 0;
     virtual Ret unregisterPlugins(const PluginResourceIdList& resourceIds) = 0;
 
-    virtual Ret setPluginsState(const PluginResourceIdList& resourceIds, AudioPluginState state) = 0;
+    virtual Ret setPluginsState(const io::paths_t& paths, AudioPluginState state) = 0;
 
     // Erase every entry whose `path` matches. Used to clear a Discovered
     // placeholder before its (re)validation result is written, so a
