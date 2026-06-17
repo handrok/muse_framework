@@ -63,17 +63,13 @@ if (MUSE_MODULE_DIAGNOSTICS_CRASHPAD_CLIENT)
         SKIP_UNITY_BUILD_INCLUSION ON
     )
 
-    target_include_directories(muse_diagnostics PRIVATE
-        thirdparty/google_crashpad_client
-        thirdparty/google_crashpad_client/third_party/mini_chromium/mini_chromium
-    )
-
     target_compile_definitions(muse_diagnostics PRIVATE
         MUSE_MODULE_DIAGNOSTICS_CRASHREPORT_URL="${MUSE_MODULE_DIAGNOSTICS_CRASHREPORT_URL}"
     )
 
-    add_subdirectory(thirdparty/google_crashpad_client google_crashpad_client)
-
+    # gcrashpad is built from the muse_deps crashpad_client source dep;
+    # its PUBLIC includes carry the crashpad and mini_chromium headers.
+    crashpad_client_add_to_build()
     target_link_libraries(muse_diagnostics PRIVATE gcrashpad)
 
     # Install crashpad handler

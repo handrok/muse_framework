@@ -35,6 +35,7 @@ endif()
 
 if (MUSE_MODULE_DIAGNOSTICS_CRASHPAD_CLIENT)
     require_tool(crashpad_handler)
+    require_source_dep(crashpad_client)
     get_property(_crashpad_handler_bin GLOBAL PROPERTY crashpad_handler_BIN_DIR)
     if (OS_IS_WIN)
         set(MUSE_MODULE_DIAGNOSTICS_CRASHPAD_HANDLER_PATH "${_crashpad_handler_bin}/crashpad_handler.exe" CACHE FILEPATH "" FORCE)
