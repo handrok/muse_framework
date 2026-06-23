@@ -364,28 +364,57 @@ TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, SetPluginsState_MarksEveryEnt
 
 TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, Load_MigrationFailure_LeavesRegisterEmpty)
 {
-    // A cache file from a future version (or with a missing migrator) makes
-    // migrate() return an error. load() must propagate the error and not
-    // populate the register — registerPlugins will then trip its m_loaded
-    // assertion, which is what surfaces the underlying migration failure.
+    // A failed migration must propagate from load() and leave the register unpopulated.
     JsonObject root;
-    root.set("version", 99);
+    root.set("version", 1);
     root.set("plugins", JsonArray {});
 
-    ByteArray futureData = JsonDocument(root).toJson();
+    ByteArray oldData = JsonDocument(root).toJson();
 
     ON_CALL(*m_fileSystem, exists(m_knownAudioPluginsFilePath))
     .WillByDefault(Return(muse::make_ok()));
     ON_CALL(*m_fileSystem, readFile(m_knownAudioPluginsFilePath))
-    .WillByDefault(Return(RetVal<ByteArray>::make_ok(futureData)));
+    .WillByDefault(Return(RetVal<ByteArray>::make_ok(oldData)));
 
-    EXPECT_CALL(*m_migrations, migrate(99, CURRENT_KNOWN_AUDIO_PLUGINS_VERSION, _))
-    .WillOnce(Return(Ret(static_cast<int>(Ret::Code::UnknownError), std::string("cache file version 99 is newer"))));
+    EXPECT_CALL(*m_migrations, migrate(1, CURRENT_KNOWN_AUDIO_PLUGINS_VERSION, _))
+    .WillOnce(Return(Ret(static_cast<int>(Ret::Code::UnknownError), std::string("missing migrator"))));
 
     Ret ret = m_knownPlugins->load();
 
     EXPECT_FALSE(ret);
-    EXPECT_NE(ret.text().find("newer"), std::string::npos);
+    EXPECT_NE(ret.text().find("migrator"), std::string::npos);
+    EXPECT_TRUE(m_knownPlugins->pluginInfoList().empty());
+}
+
+TEST_F(AudioPlugins_KnownAudioPluginsRegisterTest, Load_NewerVersion_ResetsToEmpty)
+{
+    // A newer-build cache can't be migrated down: load() resets to empty
+    // (the scan rebuilds it) instead of failing.
+    JsonObject meta;
+    meta.set("id", std::string("AAA"));
+    meta.set("type", std::string("VstPlugin"));
+    JsonObject entry;
+    entry.set("meta", meta);
+    entry.set("path", std::string("/some/path/AAA.vst3"));
+    entry.set("state", audioPluginStateName(AudioPluginState::Validated));
+
+    JsonArray plugins;
+    plugins << entry;
+
+    JsonObject root;
+    root.set("version", CURRENT_KNOWN_AUDIO_PLUGINS_VERSION + 1);
+    root.set("plugins", plugins);
+
+    ON_CALL(*m_fileSystem, exists(m_knownAudioPluginsFilePath))
+    .WillByDefault(Return(muse::make_ok()));
+    ON_CALL(*m_fileSystem, readFile(m_knownAudioPluginsFilePath))
+    .WillByDefault(Return(RetVal<ByteArray>::make_ok(JsonDocument(root).toJson())));
+
+    EXPECT_CALL(*m_migrations, migrate(_, _, _)).Times(0);
+
+    Ret ret = m_knownPlugins->load();
+
+    EXPECT_TRUE(ret);
     EXPECT_TRUE(m_knownPlugins->pluginInfoList().empty());
 }
 

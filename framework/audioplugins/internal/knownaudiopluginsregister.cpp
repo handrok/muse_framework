@@ -145,6 +145,15 @@ Ret KnownAudioPluginsRegister::load()
         return Ret(static_cast<int>(Ret::Code::UnknownError), "Unrecognized known_audio_plugins.json root type");
     }
 
+    if (fileVersion > CURRENT_KNOWN_AUDIO_PLUGINS_VERSION) {
+        LOGW() << "known-audio-plugins cache is newer (v" << fileVersion << ") than this build (v"
+               << CURRENT_KNOWN_AUDIO_PLUGINS_VERSION << "); resetting it";
+        m_ignoredEntries.clear();
+        m_loaded = true;
+        pluginInfoListChanged().notify();
+        return muse::make_ok();
+    }
+
     Ret migrationRet = migrations()->migrate(fileVersion, CURRENT_KNOWN_AUDIO_PLUGINS_VERSION, array);
     if (!migrationRet) {
         LOGE() << "Failed to migrate known-audio-plugins cache from v" << fileVersion
