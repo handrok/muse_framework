@@ -22,6 +22,8 @@
 
 #include "knownaudiopluginsmigrationregister.h"
 
+#include "../audiopluginstypes.h"
+
 #include "log.h"
 
 using namespace muse;
