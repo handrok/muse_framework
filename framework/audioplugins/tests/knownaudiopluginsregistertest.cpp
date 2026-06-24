@@ -26,6 +26,7 @@
 #include "audioplugins/internal/knownaudiopluginsregister.h"
 
 #include "global/tests/mocks/filesystemmock.h"
+#include "global/tests/mocks/globalconfigurationmock.h"
 #include "mocks/audiopluginsconfigurationmock.h"
 #include "mocks/knownaudiopluginsmigrationregistermock.h"
 
@@ -53,10 +54,12 @@ protected:
         m_fileSystem = std::make_shared<NiceMock<FileSystemMock> >();
         m_configuration = std::make_shared<NiceMock<AudioPluginsConfigurationMock> >();
         m_migrations = std::make_shared<NiceMock<KnownAudioPluginsMigrationRegisterMock> >();
+        m_globalConfiguration = std::make_shared<NiceMock<GlobalConfigurationMock> >();
 
         m_knownPlugins->fileSystem.set(m_fileSystem);
         m_knownPlugins->configuration.set(m_configuration);
         m_knownPlugins->migrations.set(m_migrations);
+        m_knownPlugins->globalConfiguration.set(m_globalConfiguration);
 
         m_knownAudioPluginsFilePath = "/test/some dir/known_audio_plugins.json";
         ON_CALL(*m_configuration, knownAudioPluginsFilePath())
@@ -167,6 +170,7 @@ protected:
     std::shared_ptr<FileSystemMock> m_fileSystem;
     std::shared_ptr<AudioPluginsConfigurationMock> m_configuration;
     std::shared_ptr<KnownAudioPluginsMigrationRegisterMock> m_migrations;
+    std::shared_ptr<GlobalConfigurationMock> m_globalConfiguration;
 
     path_t m_knownAudioPluginsFilePath;
     PluginAttributes m_runtimeDefaults;

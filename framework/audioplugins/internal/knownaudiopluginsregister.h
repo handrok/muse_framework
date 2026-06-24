@@ -24,6 +24,8 @@
 
 #include "global/modularity/ioc.h"
 #include "global/io/ifilesystem.h"
+#include "global/iglobalconfiguration.h"
+#include "global/serialization/json.h"
 
 #include "../iknownaudiopluginsregister.h"
 #include "../iknownaudiopluginsmigrationregister.h"
@@ -35,6 +37,7 @@ class KnownAudioPluginsRegister : public IKnownAudioPluginsRegister
     GlobalInject<IAudioPluginsConfiguration> configuration;
     GlobalInject<IKnownAudioPluginsMigrationRegister> migrations;
     GlobalInject<io::IFileSystem> fileSystem;
+    GlobalInject<IGlobalConfiguration> globalConfiguration;
 
     friend class AudioPlugins_KnownAudioPluginsRegisterTest;
 
@@ -64,5 +67,6 @@ private:
     bool m_loaded = false;
     std::multimap<PluginResourceId, AudioPluginInfo> m_pluginInfoMap;
     std::set<io::path_t> m_pluginPaths;
+    std::vector<JsonObject> m_ignoredEntries;
 };
 }

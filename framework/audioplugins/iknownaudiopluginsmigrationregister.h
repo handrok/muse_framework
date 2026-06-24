@@ -29,7 +29,7 @@
 #include "global/types/ret.h"
 
 namespace muse::audioplugins {
-inline constexpr int CURRENT_KNOWN_AUDIO_PLUGINS_VERSION = 3;
+inline constexpr int CURRENT_KNOWN_AUDIO_PLUGINS_VERSION = 4;
 
 class IKnownAudioPluginsMigrationRegister : MODULE_GLOBAL_INTERFACE
 {

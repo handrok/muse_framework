@@ -55,9 +55,13 @@ KnownAudioPluginsMigrationRegister::KnownAudioPluginsMigrationRegister()
         return out;
     });
 
-    // v2 -> v3: no-op default so a v2 cache can always reach the current version;
-    // apps override this slot for their own work (e.g. MuseScore's hasNativeEditorSupport).
+    // v2 -> v3: no-op default, apps override this slot with their own work
     registerMigration(2, [](const JsonArray& plugins) {
+        return plugins;
+    });
+
+    // v3 -> v4: bundled plugins are persisted under a portable ${INSTALL_ROOT} path
+    registerMigration(3, [](const JsonArray& plugins) {
         return plugins;
     });
 }

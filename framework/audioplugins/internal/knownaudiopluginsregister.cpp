@@ -153,26 +153,36 @@ Ret KnownAudioPluginsRegister::load()
         return migrationRet;
     }
 
+    m_ignoredEntries.clear();
+
     for (size_t i = 0; i < array.size(); ++i) {
         JsonObject object = array.at(i).toObject();
 
         AudioPluginInfo info;
         info.meta = metaFromJson(object.value("meta").toObject());
         for (const auto& kv : configuration()->runtimeAttributeDefaults()) {
-            // Assign, don't emplace: runtime-only defaults must override any
-            // stale value a legacy cache still carries for the same key.
+            // assign, not emplace: defaults must override stale values from a legacy cache
             info.meta.attributes[kv.first] = kv.second;
         }
-        info.path = object.value("path").toString();
+        const io::path_t storedPath = object.value("path").toString();
+        info.path = globalConfiguration()->isBundledPath(storedPath)
+                    ? globalConfiguration()->fromBundledPath(storedPath)
+                    : storedPath;
         info.state = audioPluginStateFromName(object.value("state").toStdString());
         info.errorCode = object.value("errorCode").toInt();
 
-        // `id` and `path` are the lookup keys; a row missing either would poison
-        // m_pluginInfoMap with an empty-key record. Skip just that row — aborting
-        // the load leaves m_loaded false and trips asserts in the next scan.
+        // id and path are the lookup keys; skip just the malformed row,
+        // aborting the whole load would trip asserts in the next scan
         if (info.meta.id.empty() || info.path.empty()) {
             LOGW() << "Skipping malformed known-audio-plugins entry at "
                    << knownAudioPluginsPath << " (missing id or path)";
+            continue;
+        }
+
+        // a bundled plugin not found in this app may belong to another installed
+        // instance; keep its record but don't expose it
+        if (globalConfiguration()->isBundledPath(storedPath) && !fileSystem()->exists(info.path)) {
+            m_ignoredEntries.push_back(object);
             continue;
         }
 
@@ -357,13 +367,15 @@ Ret KnownAudioPluginsRegister::writePluginsInfo()
     for (const auto& pair : m_pluginInfoMap) {
         const AudioPluginInfo& info = pair.second;
 
+        const io::path_t storedPath = globalConfiguration()->isBundledWithApp(info.path)
+                                      ? globalConfiguration()->toBundledPath(info.path)
+                                      : info.path;
+
         JsonObject obj;
         obj.set("meta", metaToJson(info.meta, runtimeOnly));
-        obj.set("path", info.path.toStdString());
+        obj.set("path", storedPath.toStdString());
 
-        // Omit the state field for Undefined entries — a written entry always
-        // carries a concrete state. load() reads a missing "state" back as
-        // Undefined, so this round-trips.
+        // load() reads a missing "state" back as Undefined, so omitting it round-trips
         if (info.state != AudioPluginState::Undefined) {
             obj.set("state", audioPluginStateName(info.state));
         }
@@ -373,6 +385,11 @@ Ret KnownAudioPluginsRegister::writePluginsInfo()
         }
 
         array << obj;
+    }
+
+    // write ignored records back untouched to preserve other instances' settings
+    for (const JsonObject& ignored : m_ignoredEntries) {
+        array << ignored;
     }
 
     JsonObject root;
