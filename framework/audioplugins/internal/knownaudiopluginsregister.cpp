@@ -410,3 +410,72 @@ Ret KnownAudioPluginsRegister::writePluginsInfo()
 
     return ret;
 }
+
+Ret KnownAudioPluginsRegister::writePluginsTo(const io::path_t& file, const AudioPluginInfoList& list) const
+{
+    TRACEFUNC;
+
+    JsonArray array;
+    const PluginAttributes& runtimeOnly = configuration()->runtimeAttributeDefaults();
+
+    for (const AudioPluginInfo& info : list) {
+        JsonObject obj;
+        obj.set("meta", metaToJson(info.meta, runtimeOnly));
+        obj.set("path", info.path.toStdString());
+
+        if (info.state != AudioPluginState::Undefined) {
+            obj.set("state", audioPluginStateName(info.state));
+        }
+
+        if (info.errorCode != 0) {
+            obj.set("errorCode", info.errorCode);
+        }
+
+        array << obj;
+    }
+
+    JsonObject root;
+    root.set("version", CURRENT_KNOWN_AUDIO_PLUGINS_VERSION);
+    root.set("plugins", array);
+
+    return fileSystem()->writeFile(file, JsonDocument(root).toJson());
+}
+
+RetVal<AudioPluginInfoList> KnownAudioPluginsRegister::readPluginsFrom(const io::path_t& file) const
+{
+    TRACEFUNC;
+
+    RetVal<ByteArray> bytes = fileSystem()->readFile(file);
+    if (!bytes.ret) {
+        return RetVal<AudioPluginInfoList>(bytes.ret);
+    }
+
+    std::string err;
+    JsonDocument json = JsonDocument::fromJson(bytes.val, &err);
+    if (!err.empty()) {
+        return RetVal<AudioPluginInfoList>(Ret(static_cast<int>(Ret::Code::UnknownError), err));
+    }
+
+    JsonArray array = json.rootObject().value("plugins").toArray();
+
+    AudioPluginInfoList result;
+    result.reserve(array.size());
+
+    for (size_t i = 0; i < array.size(); ++i) {
+        JsonObject object = array.at(i).toObject();
+
+        AudioPluginInfo info;
+        info.meta = metaFromJson(object.value("meta").toObject());
+        info.path = object.value("path").toString();
+        info.state = audioPluginStateFromName(object.value("state").toStdString());
+        info.errorCode = object.value("errorCode").toInt();
+
+        if (info.meta.id.empty() || info.path.empty()) {
+            continue;
+        }
+
+        result.push_back(std::move(info));
+    }
+
+    return RetVal<AudioPluginInfoList>::make_ok(result);
+}

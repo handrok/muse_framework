@@ -24,7 +24,13 @@
 
 #include <QCoreApplication>
 #include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <map>
+#include <memory>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 #include "global/translation.h"
@@ -47,6 +53,19 @@ std::string placeholderIdFromPath(const io::path_t& path)
         id = path.toStdString();
     }
     return id;
+}
+
+int64_t pluginScanConcurrency()
+{
+    const unsigned int concurrency = std::thread::hardware_concurrency();
+    return concurrency > 0 ? static_cast<int64_t>(concurrency) : 1;
+}
+
+void processProgressEvents()
+{
+    if (QCoreApplication::instance()) {
+        QCoreApplication::processEvents();
+    }
 }
 }
 
@@ -204,73 +223,173 @@ Ret RegisterAudioPluginsScenario::unregisterRemovedPlugins(const PluginResourceI
     return ret;
 }
 
+AudioPluginInfoList RegisterAudioPluginsScenario::scanResult(const io::path_t& pluginPath, const io::path_t& resultFile, int code) const
+{
+    if (code == 0) {
+        RetVal<AudioPluginInfoList> res = knownPluginsRegister()->readPluginsFrom(resultFile);
+        if (res.ret) {
+            fileSystem()->remove(resultFile);
+            return res.val;
+        } else {
+            LOGE() << "Could not read scan result for " << pluginPath.toStdString() << ": " << res.ret.toString();
+        }
+    } else {
+        LOGE() << "Could not register plugin: " << pluginPath.toStdString() << "\n error code: " << code;
+    }
+
+    fileSystem()->remove(resultFile);
+    return { makeFailedPluginInfo(pluginPath, code) };
+}
+
+static void appendPluginInfos(AudioPluginInfoList& destination, const AudioPluginInfoList& source)
+{
+    destination.insert(destination.end(), source.cbegin(), source.cend());
+}
+
 void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t& pluginPaths)
 {
     interactive()->showProgress(muse::trc("audio", "Scanning audio plugins"), m_progress);
 
     m_aborted = false;
     m_progress.start();
+    processProgressEvents();
 
-    std::string appPath = globalConfiguration()->appBinPath().toStdString();
-    int64_t pluginCount = static_cast<int64_t>(pluginPaths.size());
+    const std::string appPath = globalConfiguration()->appBinPath().toStdString();
+    const int64_t pluginCount = static_cast<int64_t>(pluginPaths.size());
+    if (pluginCount == 0) {
+        m_progress.finish(muse::make_ok());
+        return;
+    }
 
-    for (int64_t i = 0; i < pluginCount; ++i) {
-        if (m_aborted) {
+    const int64_t concurrency = pluginScanConcurrency();
+    const size_t registryFlushSize = 64;
+
+    struct CompletedScan {
+        int64_t index = 0;
+        io::path_t resultFile;
+        int code = 0;
+    };
+
+    std::mutex completedMutex;
+    std::condition_variable completedChanged;
+    std::vector<CompletedScan> completedScans;
+    std::atomic<int64_t> nextIndex { 0 };
+    std::atomic<int64_t> activeWorkers { 0 };
+    std::vector<std::thread> workers;
+    PluginResourceIdList completedPlaceholderIds;
+    AudioPluginInfoList completedPluginInfo;
+    int64_t doneCount = 0;
+
+    auto flushCompletedScanResults = [&]() {
+        if (completedPlaceholderIds.empty() && completedPluginInfo.empty()) {
             return;
         }
 
-        const io::path_t& pluginPath = pluginPaths[i];
-        std::string pluginPathStr = pluginPath.toStdString();
-
-        m_progress.progress(i, pluginCount, io::filename(pluginPath).toStdString());
-        qApp->processEvents();
-
-        // The subprocess clears its own Discovered placeholder via
-        // registerPlugin / registerFailedPlugin. Removing it here would
-        // operate on the main process's stale in-memory register and
-        // clobber the entries previous subprocesses already wrote.
-        LOGD() << "--register-audio-plugin " << pluginPathStr;
-        int code = process()->execute(appPath, { "--register-audio-plugin", pluginPathStr });
-        if (code != 0) {
-            code = process()->execute(appPath, { "--register-failed-audio-plugin", pluginPathStr, "--", std::to_string(code) });
+        Ret ret = knownPluginsRegister()->unregisterPlugins(completedPlaceholderIds);
+        if (!ret) {
+            LOGE() << "Failed to remove completed plugin placeholders: " << ret.toString();
         }
 
-        if (code != 0) {
-            LOGE() << "Could not register plugin: " << pluginPathStr << "\n error code: " << code;
+        ret = knownPluginsRegister()->registerPlugins(completedPluginInfo);
+        if (!ret) {
+            LOGE() << "Failed to register scanned plugins: " << ret.toString();
+        }
+
+        completedPlaceholderIds.clear();
+        completedPluginInfo.clear();
+    };
+
+    auto worker = [&]() {
+        while (!m_aborted.load()) {
+            const int64_t index = nextIndex.fetch_add(1);
+            if (index >= pluginCount) {
+                break;
+            }
+
+            const io::path_t resultFile = scanResultFilePath(index);
+            const std::string pluginPathStr = pluginPaths[index].toStdString();
+
+            // remove just in case there are any leftovers from previous run
+            fileSystem()->remove(resultFile);
+
+            const int code = process()->execute(appPath,
+                                                { "--register-audio-plugin", pluginPathStr, "--out", resultFile.toStdString() });
+
+            {
+                std::lock_guard lock(completedMutex);
+                completedScans.push_back({ index, resultFile, code });
+            }
+            completedChanged.notify_one();
+        }
+
+        --activeWorkers;
+        completedChanged.notify_one();
+    };
+
+    const int64_t workerCount = std::min(concurrency, pluginCount);
+    activeWorkers = workerCount;
+    workers.reserve(static_cast<size_t>(workerCount));
+    for (int64_t i = 0; i < workerCount; ++i) {
+        workers.emplace_back(worker);
+    }
+
+    while (doneCount < pluginCount) {
+        CompletedScan scan;
+        {
+            std::unique_lock lock(completedMutex);
+            while (completedScans.empty() && activeWorkers.load() > 0) {
+                completedChanged.wait_for(lock, std::chrono::milliseconds(50));
+                lock.unlock();
+                processProgressEvents();
+                lock.lock();
+            }
+
+            if (completedScans.empty()) {
+                break;
+            }
+
+            scan = completedScans.back();
+            completedScans.pop_back();
+        }
+
+        ++doneCount;
+        completedPlaceholderIds.push_back(placeholderIdFromPath(pluginPaths[scan.index]));
+        appendPluginInfos(completedPluginInfo, scanResult(pluginPaths[scan.index], scan.resultFile, scan.code));
+
+        m_progress.progress(doneCount, pluginCount, io::filename(pluginPaths[scan.index]).toStdString());
+        processProgressEvents();
+
+        if (completedPlaceholderIds.size() >= registryFlushSize) {
+            flushCompletedScanResults();
+        }
+
+        if (m_aborted.load() && activeWorkers.load() == 0) {
+            break;
         }
     }
+
+    for (std::thread& workerThread : workers) {
+        if (workerThread.joinable()) {
+            workerThread.join();
+        }
+    }
+
+    flushCompletedScanResults();
 
     m_progress.finish(muse::make_ok());
+    processProgressEvents();
 }
 
-Ret RegisterAudioPluginsScenario::registerPlugin(const io::path_t& pluginPath)
+RetVal<AudioPluginInfoList> RegisterAudioPluginsScenario::validatePluginInfo(const io::path_t& pluginPath) const
 {
-    TRACEFUNC;
-
-    IF_ASSERT_FAILED(!pluginPath.empty()) {
-        return false;
-    }
-
-    // Clear any prior Discovered placeholder at this path so the real
-    // validated metadata can be registered without tripping the
-    // same-id-same-path guard in registerPlugins(). Subprocess-side: the
-    // process just load()ed, so the register reflects what's on disk.
-    Ret ret = knownPluginsRegister()->removePluginsAtPath(pluginPath);
-    if (!ret) {
-        LOGE() << "Failed to clear existing entry at " << pluginPath.toStdString()
-               << ": " << ret.toString();
-        return ret;
-    }
-
     const IAudioPluginMetaReaderPtr reader = metaReader(pluginPath);
     if (!reader) {
-        return make_ret(Err::UnknownPluginType);
+        return RetVal<AudioPluginInfoList>(make_ret(Err::UnknownPluginType));
     }
 
     const RetVal<PluginMetaList> metaList = reader->readMeta(pluginPath);
     if (!metaList.ret) {
-        LOGE() << metaList.ret.toString();
-        return metaList.ret;
+        return RetVal<AudioPluginInfoList>(metaList.ret);
     }
 
     AudioPluginInfoList infoList;
@@ -284,10 +403,10 @@ Ret RegisterAudioPluginsScenario::registerPlugin(const io::path_t& pluginPath)
         infoList.emplace_back(std::move(info));
     }
 
-    return knownPluginsRegister()->registerPlugins(infoList);
+    return RetVal<AudioPluginInfoList>::make_ok(infoList);
 }
 
-Ret RegisterAudioPluginsScenario::registerFailedPlugin(const io::path_t& pluginPath, int failCode)
+Ret RegisterAudioPluginsScenario::registerPlugin(const io::path_t& pluginPath)
 {
     TRACEFUNC;
 
@@ -295,9 +414,6 @@ Ret RegisterAudioPluginsScenario::registerFailedPlugin(const io::path_t& pluginP
         return false;
     }
 
-    // Same reason as registerPlugin: the failed entry uses the basename as
-    // its id (matching the Discovered placeholder), so the placeholder must
-    // be cleared first to avoid the same-id-same-path guard.
     Ret ret = knownPluginsRegister()->removePluginsAtPath(pluginPath);
     if (!ret) {
         LOGE() << "Failed to clear existing entry at " << pluginPath.toStdString()
@@ -305,14 +421,46 @@ Ret RegisterAudioPluginsScenario::registerFailedPlugin(const io::path_t& pluginP
         return ret;
     }
 
+    RetVal<AudioPluginInfoList> infoList = validatePluginInfo(pluginPath);
+    if (!infoList.ret) {
+        LOGE() << infoList.ret.toString();
+        return infoList.ret;
+    }
+
+    return knownPluginsRegister()->registerPlugins(infoList.val);
+}
+
+Ret RegisterAudioPluginsScenario::validatePlugin(const io::path_t& pluginPath, const io::path_t& outputFile)
+{
+    TRACEFUNC;
+
+    IF_ASSERT_FAILED(!pluginPath.empty()) {
+        return false;
+    }
+
+    RetVal<AudioPluginInfoList> infoList = validatePluginInfo(pluginPath);
+    if (!infoList.ret) {
+        LOGE() << infoList.ret.toString();
+        return infoList.ret;
+    }
+
+    return knownPluginsRegister()->writePluginsTo(outputFile, infoList.val);
+}
+
+AudioPluginInfo RegisterAudioPluginsScenario::makeFailedPluginInfo(const io::path_t& pluginPath, int failCode) const
+{
     AudioPluginInfo info;
     info.meta.id = placeholderIdFromPath(pluginPath);
     info.meta.type = metaType(pluginPath);
     info.path = pluginPath;
     info.state = AudioPluginState::Error;
-    info.errorCode = failCode;
+    info.errorCode = failCode != 0 ? failCode : -1;
+    return info;
+}
 
-    return knownPluginsRegister()->registerPlugins({ info });
+io::path_t RegisterAudioPluginsScenario::scanResultFilePath(int64_t index) const
+{
+    return fileSystem()->temporaryDirectoryPath() + "/muse_audioplugin_scan_" + std::to_string(index) + ".json";
 }
 
 IAudioPluginMetaReaderPtr RegisterAudioPluginsScenario::metaReader(const io::path_t& pluginPath) const

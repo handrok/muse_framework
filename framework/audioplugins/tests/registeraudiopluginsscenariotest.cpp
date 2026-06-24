@@ -25,6 +25,7 @@
 
 #include "global/tests/mocks/globalconfigurationmock.h"
 #include "global/tests/mocks/processmock.h"
+#include "global/tests/mocks/filesystemmock.h"
 #include "interactive/tests/mocks/interactivemock.h"
 
 #include "mocks/knownaudiopluginsregistermock.h"
@@ -36,6 +37,8 @@
 #include "translation.h"
 
 using ::testing::_;
+using ::testing::AnyNumber;
+using ::testing::ElementsAre;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
@@ -52,6 +55,7 @@ protected:
     {
         m_scenario = std::make_shared<RegisterAudioPluginsScenario>(modularity::globalCtx());
         m_globalConfiguration = std::make_shared<NiceMock<GlobalConfigurationMock> >();
+        m_fileSystem = std::make_shared<NiceMock<io::FileSystemMock> >();
         m_interactive = std::make_shared<InteractiveMock>();
         m_process = std::make_shared<ProcessMock>();
         m_scannerRegister = std::make_shared<NiceMock<AudioPluginsScannerRegisterMock> >();
@@ -63,6 +67,7 @@ protected:
         m_metaReaders = { metaReaderMock };
 
         m_scenario->globalConfiguration.set(m_globalConfiguration);
+        m_scenario->fileSystem.set(m_fileSystem);
         m_scenario->interactive.set(m_interactive);
         m_scenario->process.set(m_process);
         m_scenario->knownPluginsRegister.set(m_knownPlugins);
@@ -71,6 +76,12 @@ protected:
 
         ON_CALL(*m_globalConfiguration, appBinPath())
         .WillByDefault(Return(m_appPath));
+
+        ON_CALL(*m_fileSystem, remove(_, _))
+        .WillByDefault(Return(muse::make_ok()));
+
+        ON_CALL(*m_fileSystem, temporaryDirectoryPath())
+        .WillByDefault(Return(io::path_t("/tmp")));
 
         ON_CALL(*m_scannerRegister, scanners())
         .WillByDefault(ReturnRef(m_scanners));
@@ -92,10 +103,20 @@ protected:
 
         ON_CALL(*m_knownPlugins, registerPlugins(_))
         .WillByDefault(Return(muse::make_ok()));
+
+        ON_CALL(*m_knownPlugins, unregisterPlugins(_))
+        .WillByDefault(Return(muse::make_ok()));
+
+        ON_CALL(*m_knownPlugins, writePluginsTo(_, _))
+        .WillByDefault(Return(muse::make_ok()));
+
+        ON_CALL(*m_knownPlugins, readPluginsFrom(_))
+        .WillByDefault(Return(RetVal<AudioPluginInfoList>::make_ok({})));
     }
 
     std::shared_ptr<RegisterAudioPluginsScenario> m_scenario;
     std::shared_ptr<GlobalConfigurationMock> m_globalConfiguration;
+    std::shared_ptr<io::FileSystemMock> m_fileSystem;
     std::shared_ptr<InteractiveMock> m_interactive;
     std::shared_ptr<ProcessMock> m_process;
     std::shared_ptr<KnownAudioPluginsRegisterMock> m_knownPlugins;
@@ -167,34 +188,31 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry)
     EXPECT_CALL(*m_interactive, showProgress(muse::trc("audio", "Scanning audio plugins"), _))
     .Times(1);
 
-    // [THEN] Processes started only for unregistered plugins
+    // [THEN] Processes started only for unregistered plugins; each gets an
+    // --out file, the main process is the sole cache writer.
     paths_t alreadyRegisteredPaths { foundPluginPaths[0], foundPluginPaths[1] };
     for (const path_t& pluginPath : foundPluginPaths) {
-        std::vector<std::string> args = { "--register-audio-plugin", pluginPath.toStdString() };
+        auto argsMatch = ElementsAre("--register-audio-plugin", pluginPath.toStdString(), "--out", _);
 
         if (muse::contains(alreadyRegisteredPaths, pluginPath)) {
             // Ignore already registered plugins
-            EXPECT_CALL(*m_process, execute(_, args))
+            EXPECT_CALL(*m_process, execute(_, argsMatch))
             .Times(0);
         } else if (incompatiblePluginInfo.path == pluginPath) {
-            // Incompatible plugin detected
-            EXPECT_CALL(*m_process, execute(m_appPath, args))
+            // Incompatible plugin: subprocess fails, main records the failure
+            EXPECT_CALL(*m_process, execute(m_appPath, argsMatch))
             .WillOnce(Return(-1));
-
-            args = { "--register-failed-audio-plugin", pluginPath.toStdString(), "--", "-1" };
-
-            EXPECT_CALL(*m_process, execute(m_appPath, args))
-            .WillOnce(Return(0));
         } else {
             // Successfully registered plugins
-            EXPECT_CALL(*m_process, execute(m_appPath, args))
+            EXPECT_CALL(*m_process, execute(m_appPath, argsMatch))
             .WillOnce(Return(0));
         }
     }
 
-    // [THEN] All plugins remain in the register
+    // [THEN] Completed Discovered placeholders are removed in one batch before
+    // scanned results are registered.
     EXPECT_CALL(*m_knownPlugins, unregisterPlugins(_))
-    .Times(0);
+    .WillOnce(Return(make_ok()));
 
     // [THEN] The register is refreshed
     EXPECT_CALL(*m_knownPlugins, load())
@@ -470,33 +488,27 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Left
         .WillByDefault(Return(foundPluginPaths));
     }
 
-    // [THEN] The Discovered path is treated as new — registered as a fresh
-    // placeholder and re-validated via subprocess. It is NOT marked Missing
-    // (it's still on disk).
+    // [THEN] The Discovered path is re-validated, not marked Missing
     EXPECT_CALL(*m_knownPlugins, setPluginsState(paths_t {}, AudioPluginState::Missing))
     .WillOnce(Return(make_ok()));
 
-    // [THEN] registerNewPlugins writes a Discovered placeholder for the path
-    // before spawning the subprocess.
+    // [THEN] A Discovered placeholder is written before spawning the subprocess;
+    // completed results land in a later registerPlugins call (the catch-all below).
+    EXPECT_CALL(*m_knownPlugins, registerPlugins(_))
+    .Times(AnyNumber())
+    .WillRepeatedly(Return(make_ok()));
     AudioPluginInfo expectedPlaceholder = createPluginInfo("/some/path/CRASHED.vst3",
                                                            AudioPluginState::Discovered);
     EXPECT_CALL(*m_knownPlugins, registerPlugins(AudioPluginInfoList { expectedPlaceholder }))
     .WillOnce(Return(make_ok()));
 
-    // [THEN] The path is cleared once, inside persistDiscoveredPlaceholders,
-    // so a leftover Discovered entry from a previous interrupted run doesn't
-    // trip registerPlugins's same-id-same-path assertion. The subprocess
-    // takes care of clearing the placeholder again before persisting its
-    // Validated/Error result (see RegisterPlugin / RegisterFailedPlugin
-    // tests); the main process must NOT do it again here because that would
-    // operate on its stale in-memory register and clobber the accumulated
-    // results of previous subprocesses.
+    // [THEN] The path is cleared before writing the Discovered placeholder;
+    // completed placeholders are removed in one batch.
     EXPECT_CALL(*m_knownPlugins, removePluginsAtPath(io::path_t("/some/path/CRASHED.vst3")))
-    .Times(1)
-    .WillRepeatedly(Return(make_ok()));
+    .WillOnce(Return(make_ok()));
 
     EXPECT_CALL(*m_process, execute(m_appPath,
-                                    std::vector<std::string> { "--register-audio-plugin", "/some/path/CRASHED.vst3" }))
+                                    ElementsAre("--register-audio-plugin", "/some/path/CRASHED.vst3", "--out", _)))
     .WillOnce(Return(0));
 
     // [THEN] register loaded twice (once after registerNewPlugins, once at end of updatePluginsRegistry)
@@ -508,10 +520,11 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Left
     EXPECT_TRUE(ret);
 }
 
-TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterPlugin)
+TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, ValidatePlugin)
 {
-    // [GIVEN] Some plugin we want to register
+    // [GIVEN] A plugin to validate out-of-process and the result file to write
     path_t pluginPath = "/some/test/path/to/plugin/AAA.vst3";
+    path_t outputFile = "/tmp/scan_result.json";
 
     PluginMetaList metaList;
 
@@ -532,7 +545,7 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterPlugin)
     ON_CALL(*mock, readMeta(pluginPath))
     .WillByDefault(Return(RetVal<PluginMetaList>::make_ok(metaList)));
 
-    // [THEN] The plugin has been registered
+    // [THEN] The validated metadata is written to the result file
     AudioPluginInfoList expectedInfoList;
     expectedInfoList.reserve(metaList.size());
 
@@ -545,51 +558,96 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterPlugin)
         expectedInfoList.emplace_back(std::move(expectedPluginInfo));
     }
 
-    // [THEN] Any prior Discovered placeholder at this path is cleared before
-    // the real validated entries are persisted. Subprocess-side, this is what
-    // lets a single path with N sub-effects replace the 1 placeholder entry
-    // with N Validated ones without tripping the same-id-same-path guard.
-    ::testing::InSequence seq;
-    EXPECT_CALL(*m_knownPlugins, removePluginsAtPath(pluginPath))
+    EXPECT_CALL(*m_knownPlugins, writePluginsTo(outputFile, expectedInfoList))
     .WillOnce(Return(make_ok()));
-    EXPECT_CALL(*m_knownPlugins, registerPlugins(expectedInfoList))
-    .WillOnce(Return(true));
 
-    // [WHEN] Register the plugin
-    Ret ret = m_scenario->registerPlugin(pluginPath);
+    // [THEN] The subprocess does not touch the cache; the main process owns it
+    EXPECT_CALL(*m_knownPlugins, removePluginsAtPath(_))
+    .Times(0);
+    EXPECT_CALL(*m_knownPlugins, registerPlugins(_))
+    .Times(0);
 
-    // [THEN] The plugin successfully registered
+    // [WHEN] Validate the plugin
+    Ret ret = m_scenario->validatePlugin(pluginPath, outputFile);
+
+    // [THEN] Validation succeeded
     EXPECT_TRUE(ret);
 }
 
-TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterFailedPlugin)
+TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterPlugin)
 {
-    // [GIVEN] Some incompatible plugin we want to register
+    // [GIVEN] A trusted plugin registered in-process (no subprocess)
     path_t pluginPath = "/some/test/path/to/plugin/AAA.vst3";
 
-    // [THEN] The plugin has been registered
-    AudioPluginInfo expectedPluginInfo;
-    expectedPluginInfo.meta.id = io::completeBasename(pluginPath).toStdString();
-    expectedPluginInfo.meta.type = "VstPlugin";
-    expectedPluginInfo.path = pluginPath;
-    expectedPluginInfo.state = AudioPluginState::Error;
-    expectedPluginInfo.errorCode = -42;
+    PluginMetaList metaList;
+    PluginMeta pluginMeta;
+    pluginMeta.id = "Mono plugin";
+    pluginMeta.attributes.insert({ String(u"categories"), u"Fx|Mono" });
+    metaList.push_back(pluginMeta);
 
-    // [THEN] Same as RegisterPlugin: clear the prior placeholder first. Here
-    // it's load-bearing — the failed entry uses the basename as its id, which
-    // is the same id the Discovered placeholder used, so without the prior
-    // remove registerPlugins would hit the same-id-same-path guard.
+    ASSERT_FALSE(m_metaReaders.empty());
+    AudioPluginMetaReaderMock* mock = dynamic_cast<AudioPluginMetaReaderMock*>(m_metaReaders[0].get());
+    ASSERT_TRUE(mock);
+
+    ON_CALL(*mock, readMeta(pluginPath))
+    .WillByDefault(Return(RetVal<PluginMetaList>::make_ok(metaList)));
+
+    AudioPluginInfo expectedPluginInfo;
+    expectedPluginInfo.meta = pluginMeta;
+    expectedPluginInfo.path = pluginPath;
+    expectedPluginInfo.state = AudioPluginState::Validated;
+
+    // [THEN] The placeholder is cleared, then the validated entry is written
+    // straight to the register (no result file).
     ::testing::InSequence seq;
     EXPECT_CALL(*m_knownPlugins, removePluginsAtPath(pluginPath))
     .WillOnce(Return(make_ok()));
     EXPECT_CALL(*m_knownPlugins, registerPlugins(AudioPluginInfoList { expectedPluginInfo }))
-    .WillOnce(Return(true));
+    .WillOnce(Return(make_ok()));
+    EXPECT_CALL(*m_knownPlugins, writePluginsTo(_, _))
+    .Times(0);
 
-    // [WHEN] Register the incompatible plugin
-    Ret ret = m_scenario->registerFailedPlugin(pluginPath, expectedPluginInfo.errorCode);
+    // [WHEN] Register the plugin in-process
+    Ret ret = m_scenario->registerPlugin(pluginPath);
 
-    // [THEN] The plugin successfully registered
+    // [THEN] Registration succeeded
     EXPECT_TRUE(ret);
+}
+
+TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, FailedValidationRecordsErrorEntry)
+{
+    // [GIVEN] A new plugin whose subprocess validation fails
+    path_t pluginPath = "/some/test/path/to/plugin/AAA.vst3";
+    paths_t paths { pluginPath };
+
+    ON_CALL(*m_knownPlugins, load())
+    .WillByDefault(Return(make_ok()));
+
+    // [GIVEN] The subprocess exits with a failure code
+    EXPECT_CALL(*m_process, execute(m_appPath,
+                                    ElementsAre("--register-audio-plugin", pluginPath.toStdString(), "--out", _)))
+    .WillOnce(Return(-42));
+
+    // [THEN] The main process records an Error entry itself (no second
+    // subprocess). The failed entry uses the basename as its id and carries
+    // the subprocess exit code.
+    AudioPluginInfo expectedError;
+    expectedError.meta.id = io::completeBasename(pluginPath).toStdString();
+    expectedError.meta.type = "VstPlugin";
+    expectedError.path = pluginPath;
+    expectedError.state = AudioPluginState::Error;
+    expectedError.errorCode = -42;
+
+    // the placeholder write is absorbed by this catch-all; the Error entry
+    // below is the assertion
+    EXPECT_CALL(*m_knownPlugins, registerPlugins(_))
+    .Times(AnyNumber())
+    .WillRepeatedly(Return(make_ok()));
+    EXPECT_CALL(*m_knownPlugins, registerPlugins(AudioPluginInfoList { expectedError }))
+    .WillOnce(Return(make_ok()));
+
+    // [WHEN] Register the new plugin with validation enabled
+    EXPECT_TRUE(m_scenario->registerNewPlugins(paths, /*validate*/ true));
 }
 
 TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterNewPlugins_ValidateFalsePersistsDiscoveredOnly)
@@ -623,7 +681,7 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterNewPlugins_Validat
     EXPECT_TRUE(m_scenario->registerNewPlugins(paths, /*validate*/ false));
 }
 
-TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterNewPlugins_NoPerIterationClobber)
+TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterNewPlugins_MainAppliesEachResult)
 {
     // [GIVEN] Three new plugin paths to scan
     paths_t paths {
@@ -632,27 +690,32 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterNewPlugins_NoPerIt
         "/some/path/CCC.vst3",
     };
 
-    // [THEN] removePluginsAtPath is called exactly once per path — inside
-    // persistDiscoveredPlaceholders only. The subprocess loop in
-    // processPluginsRegistration must NOT call it again on the main process's
-    // register; doing so would write the main's stale in-memory state to disk
-    // and clobber the Validated entries previous subprocesses had written.
-    // (The subprocess-side clearing now lives in registerPlugin /
-    // registerFailedPlugin and runs against a freshly-loaded register.)
+    // [THEN] One removePluginsAtPath per path; completed placeholders are
+    // removed in one unregisterPlugins batch.
     EXPECT_CALL(*m_knownPlugins, removePluginsAtPath(_))
     .Times(3)
     .WillRepeatedly(Return(make_ok()));
 
-    EXPECT_CALL(*m_knownPlugins, registerPlugins(_))
-    .Times(1)
+    EXPECT_CALL(*m_knownPlugins, unregisterPlugins(_))
     .WillOnce(Return(make_ok()));
 
-    // [THEN] One subprocess invocation per path
+    // [THEN] registerPlugins is called once for the placeholder batch plus once
+    // for the collected subprocess results.
+    EXPECT_CALL(*m_knownPlugins, registerPlugins(_))
+    .Times(2)
+    .WillRepeatedly(Return(make_ok()));
+
+    // [THEN] One subprocess invocation per path, each handed an --out file
     for (const path_t& path : paths) {
-        std::vector<std::string> args = { "--register-audio-plugin", path.toStdString() };
-        EXPECT_CALL(*m_process, execute(m_appPath, args))
+        EXPECT_CALL(*m_process, execute(m_appPath,
+                                        ElementsAre("--register-audio-plugin", path.toStdString(), "--out", _)))
         .WillOnce(Return(0));
     }
+
+    // [THEN] Each successful result is read back from its file
+    EXPECT_CALL(*m_knownPlugins, readPluginsFrom(_))
+    .Times(3)
+    .WillRepeatedly(Return(RetVal<AudioPluginInfoList>::make_ok({})));
 
     EXPECT_CALL(*m_interactive, showProgress(_, _))
     .Times(1);

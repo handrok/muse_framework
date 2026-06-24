@@ -25,6 +25,7 @@
 
 #include "global/async/notification.h"
 #include "global/types/ret.h"
+#include "global/types/retval.h"
 #include "global/io/path.h"
 
 #include "audiopluginstypes.h"
@@ -54,10 +55,9 @@ public:
 
     virtual Ret setPluginsState(const io::paths_t& paths, AudioPluginState state) = 0;
 
-    // Erase every entry whose `path` matches. Used to clear a Discovered
-    // placeholder before its (re)validation result is written, so a
-    // multi-effect plugin's real-id entries can replace the basename-id
-    // placeholder without orphaning it.
     virtual Ret removePluginsAtPath(const io::path_t& path) = 0;
+
+    virtual Ret writePluginsTo(const io::path_t& file, const AudioPluginInfoList& list) const = 0;
+    virtual RetVal<AudioPluginInfoList> readPluginsFrom(const io::path_t& file) const = 0;
 };
 }

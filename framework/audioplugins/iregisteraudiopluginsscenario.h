@@ -50,6 +50,6 @@ public:
     virtual Ret unregisterRemovedPlugins(const PluginResourceIdList& pluginIds) = 0;
 
     virtual Ret registerPlugin(const io::path_t& pluginPath) = 0;
-    virtual Ret registerFailedPlugin(const io::path_t& pluginPath, int failCode) = 0;
+    virtual Ret validatePlugin(const io::path_t& pluginPath, const io::path_t& outputFile) = 0;
 };
 }

@@ -61,6 +61,9 @@ public:
 
     Ret removePluginsAtPath(const io::path_t& path) override;
 
+    Ret writePluginsTo(const io::path_t& file, const AudioPluginInfoList& list) const override;
+    RetVal<AudioPluginInfoList> readPluginsFrom(const io::path_t& file) const override;
+
 private:
     Ret writePluginsInfo();
     async::Notification m_pluginInfoListChanged;
