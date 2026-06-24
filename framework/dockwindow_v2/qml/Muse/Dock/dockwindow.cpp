@@ -877,7 +877,7 @@ void DockWindow::initDocks(DockPageView* page)
 
     for (DockToolBarView* toolbar : topLevelToolBars(page)) {
         connect(toolbar, &DockToolBarView::floatingChanged,
-                holder, &UniqueConnectionHolder::alignTopLevelToolBars, Qt::UniqueConnection);
+                this, &DockWindow::scheduleDeferredLayoutFix, Qt::UniqueConnection);
 
         connect(toolbar, &DockToolBarView::contentSizeChanged,
                 holder, &UniqueConnectionHolder::alignTopLevelToolBars, Qt::UniqueConnection);
