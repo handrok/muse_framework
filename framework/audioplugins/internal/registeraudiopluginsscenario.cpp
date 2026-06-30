@@ -42,10 +42,15 @@
 using namespace muse;
 using namespace muse::audioplugins;
 
+#ifdef MUSE_MODULE_AUDIOPLUGINS_SCAN_TRACE
+#define SCAN_TRACE() LOGI()
+#else
+#define SCAN_TRACE() LOGN()
+#endif
+
 namespace {
-// Non-empty fallback id from a plugin path. completeBasename() is empty for LV2
-// "<uri>@<bundle>/" composites, persisting an empty id that load() rejects; fall
-// back to the full path for a non-empty, path-unique id.
+// completeBasename() is empty for LV2 "<uri>@<bundle>/" composites and
+// load() rejects empty ids; fall back to the full path.
 std::string placeholderIdFromPath(const io::path_t& path)
 {
     std::string id = io::completeBasename(path).toStdString();
@@ -67,6 +72,8 @@ void processProgressEvents()
         QCoreApplication::processEvents();
     }
 }
+
+constexpr int AUDIO_PLUGIN_REGISTRATION_TIMEOUT_MS = 15000;
 }
 
 void RegisterAudioPluginsScenario::init()
@@ -74,6 +81,7 @@ void RegisterAudioPluginsScenario::init()
     TRACEFUNC;
 
     m_progress.canceled().onNotify(this, [this]() {
+        SCAN_TRACE() << "Audio plugin scan cancellation requested";
         m_aborted = true;
     });
 
@@ -179,6 +187,7 @@ Ret RegisterAudioPluginsScenario::registerNewPlugins(const io::paths_t& pluginPa
     }
 
     if (validate) {
+        SCAN_TRACE() << "Starting audio plugin validation for " << pluginPaths.size() << " plugin paths";
         processPluginsRegistration(pluginPaths);
     }
 
@@ -264,6 +273,11 @@ void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t&
     const int64_t concurrency = pluginScanConcurrency();
     const size_t registryFlushSize = 64;
 
+    SCAN_TRACE() << "Audio plugin scan process started: pluginCount=" << pluginCount
+                 << ", concurrency=" << concurrency
+                 << ", timeoutMs=" << AUDIO_PLUGIN_REGISTRATION_TIMEOUT_MS
+                 << ", appPath=" << appPath;
+
     struct CompletedScan {
         int64_t index = 0;
         io::path_t resultFile;
@@ -285,6 +299,9 @@ void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t&
             return;
         }
 
+        SCAN_TRACE() << "Flushing audio plugin scan results: placeholders=" << completedPlaceholderIds.size()
+                     << ", pluginInfos=" << completedPluginInfo.size();
+
         Ret ret = knownPluginsRegister()->unregisterPlugins(completedPlaceholderIds);
         if (!ret) {
             LOGE() << "Failed to remove completed plugin placeholders: " << ret.toString();
@@ -299,8 +316,9 @@ void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t&
         completedPluginInfo.clear();
     };
 
-    auto worker = [&]() {
-        while (!m_aborted.load()) {
+    auto worker = [&](int64_t workerId) {
+        SCAN_TRACE() << "Audio plugin scan worker started: workerId=" << workerId;
+        while (!m_aborted.load() && !m_progress.isCanceled()) {
             const int64_t index = nextIndex.fetch_add(1);
             if (index >= pluginCount) {
                 break;
@@ -309,11 +327,24 @@ void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t&
             const io::path_t resultFile = scanResultFilePath(index);
             const std::string pluginPathStr = pluginPaths[index].toStdString();
 
-            // remove just in case there are any leftovers from previous run
+            SCAN_TRACE() << "Audio plugin scan worker " << workerId
+                         << " validating index=" << index << "/" << pluginCount
+                         << ", resultFile=" << resultFile.toStdString()
+                         << ", pluginPath=" << pluginPathStr;
+
+            // clear leftovers from a previous run
             fileSystem()->remove(resultFile);
 
             const int code = process()->execute(appPath,
-                                                { "--register-audio-plugin", pluginPathStr, "--out", resultFile.toStdString() });
+                                                { "--register-audio-plugin", pluginPathStr, "--out", resultFile.toStdString() },
+                                                AUDIO_PLUGIN_REGISTRATION_TIMEOUT_MS,
+                                                [this]() { return m_aborted.load() || m_progress.isCanceled(); });
+
+            SCAN_TRACE() << "Audio plugin scan worker " << workerId
+                         << " validation finished: index=" << index
+                         << ", code=" << code
+                         << ", aborted=" << m_aborted.load()
+                         << ", pluginPath=" << pluginPathStr;
 
             {
                 std::lock_guard lock(completedMutex);
@@ -322,7 +353,10 @@ void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t&
             completedChanged.notify_one();
         }
 
-        --activeWorkers;
+        const int64_t remainingWorkers = --activeWorkers;
+        SCAN_TRACE() << "Audio plugin scan worker stopped: workerId=" << workerId
+                     << ", remainingWorkers=" << remainingWorkers
+                     << ", aborted=" << m_aborted.load();
         completedChanged.notify_one();
     };
 
@@ -330,7 +364,7 @@ void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t&
     activeWorkers = workerCount;
     workers.reserve(static_cast<size_t>(workerCount));
     for (int64_t i = 0; i < workerCount; ++i) {
-        workers.emplace_back(worker);
+        workers.emplace_back(worker, i);
     }
 
     while (doneCount < pluginCount) {
@@ -345,6 +379,10 @@ void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t&
             }
 
             if (completedScans.empty()) {
+                SCAN_TRACE() << "Audio plugin scan completion loop ended with no completed scans: doneCount=" << doneCount
+                             << ", pluginCount=" << pluginCount
+                             << ", activeWorkers=" << activeWorkers.load()
+                             << ", aborted=" << m_aborted.load();
                 break;
             }
 
@@ -353,6 +391,18 @@ void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t&
         }
 
         ++doneCount;
+        SCAN_TRACE() << "Audio plugin scan result received: doneCount=" << doneCount << "/" << pluginCount
+                     << ", index=" << scan.index
+                     << ", code=" << scan.code
+                     << ", resultFile=" << scan.resultFile.toStdString()
+                     << ", pluginPath=" << pluginPaths[scan.index].toStdString();
+
+        if (scan.code == IProcess::ExecuteCanceledCode) {
+            SCAN_TRACE() << "Audio plugin scan result ignored after cancellation: index=" << scan.index
+                         << ", pluginPath=" << pluginPaths[scan.index].toStdString();
+            continue;
+        }
+
         completedPlaceholderIds.push_back(placeholderIdFromPath(pluginPaths[scan.index]));
         appendPluginInfos(completedPluginInfo, scanResult(pluginPaths[scan.index], scan.resultFile, scan.code));
 
@@ -370,27 +420,43 @@ void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t&
 
     for (std::thread& workerThread : workers) {
         if (workerThread.joinable()) {
+            SCAN_TRACE() << "Joining audio plugin scan worker thread";
             workerThread.join();
         }
     }
 
     flushCompletedScanResults();
 
-    m_progress.finish(muse::make_ok());
+    SCAN_TRACE() << "Audio plugin scan process finished: doneCount=" << doneCount
+                 << ", pluginCount=" << pluginCount
+                 << ", activeWorkers=" << activeWorkers.load()
+                 << ", aborted=" << m_aborted.load();
+
+    if (!m_aborted.load()) {
+        m_progress.finish(muse::make_ok());
+    }
     processProgressEvents();
 }
 
 RetVal<AudioPluginInfoList> RegisterAudioPluginsScenario::validatePluginInfo(const io::path_t& pluginPath) const
 {
+    SCAN_TRACE() << "Validating audio plugin metadata: pluginPath=" << pluginPath.toStdString();
+
     const IAudioPluginMetaReaderPtr reader = metaReader(pluginPath);
     if (!reader) {
+        SCAN_TRACE() << "No audio plugin meta reader found: pluginPath=" << pluginPath.toStdString();
         return RetVal<AudioPluginInfoList>(make_ret(Err::UnknownPluginType));
     }
 
     const RetVal<PluginMetaList> metaList = reader->readMeta(pluginPath);
     if (!metaList.ret) {
+        SCAN_TRACE() << "Failed reading audio plugin metadata: pluginPath=" << pluginPath.toStdString()
+                     << ", ret=" << metaList.ret.toString();
         return RetVal<AudioPluginInfoList>(metaList.ret);
     }
+
+    SCAN_TRACE() << "Audio plugin metadata read: pluginPath=" << pluginPath.toStdString()
+                 << ", metaCount=" << metaList.val.size();
 
     AudioPluginInfoList infoList;
     infoList.reserve(metaList.val.size());
@@ -438,13 +504,21 @@ Ret RegisterAudioPluginsScenario::validatePlugin(const io::path_t& pluginPath, c
         return false;
     }
 
+    SCAN_TRACE() << "Audio plugin validation subprocess started: pluginPath=" << pluginPath.toStdString()
+                 << ", outputFile=" << outputFile.toStdString();
+
     RetVal<AudioPluginInfoList> infoList = validatePluginInfo(pluginPath);
     if (!infoList.ret) {
         LOGE() << infoList.ret.toString();
         return infoList.ret;
     }
 
-    return knownPluginsRegister()->writePluginsTo(outputFile, infoList.val);
+    Ret ret = knownPluginsRegister()->writePluginsTo(outputFile, infoList.val);
+    SCAN_TRACE() << "Audio plugin validation subprocess finished: pluginPath=" << pluginPath.toStdString()
+                 << ", outputFile=" << outputFile.toStdString()
+                 << ", pluginInfoCount=" << infoList.val.size()
+                 << ", ret=" << ret.toString();
+    return ret;
 }
 
 AudioPluginInfo RegisterAudioPluginsScenario::makeFailedPluginInfo(const io::path_t& pluginPath, int failCode) const
