@@ -190,10 +190,10 @@ bool CommandShortcutsRegister::readFromFile(ShortcutList& shortcuts, const io::p
         return false;
     }
 
-    JsonObject obj = doc.rootObject();
+    JsonObject rootObj = doc.rootObject();
 
-    for (const std::string& key : obj.keys()) {
-        JsonValue scope = obj.value(key);
+    for (const std::string& key : rootObj.keys()) {
+        JsonValue scope = rootObj.value(key);
         if (!scope.isArray()) {
             LOGE() << "failed parse json: " << path << ", key: " << key;
             continue;
