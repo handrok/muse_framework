@@ -290,7 +290,7 @@ TEST_F(Draw_FontsProviderQtTests, DISABLED_boundingRect_Char)
     }
 }
 
-TEST_F(Draw_FontsProviderQtTests, DISABLED_boundingRect_String)
+TEST_F(Draw_FontsProviderQtTests, boundingRect_String)
 {
     Env env;
     Font f(u"Edwin", Font::Type::Text);
