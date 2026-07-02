@@ -141,7 +141,6 @@ PolylinePlot::PolylinePlot(QQuickItem* parent)
     setAcceptedMouseButtons(Qt::LeftButton);
 
     setAntialiasing(true);
-    setRenderTarget(QQuickPaintedItem::FramebufferObject);
     setOpaquePainting(false);
 }
 
