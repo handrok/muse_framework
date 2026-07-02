@@ -74,6 +74,11 @@ private:
         int lenght = 0;
     };
 
+    struct FontFaceTextBlock {
+        TextBlock text;
+        const IFontFace* face = nullptr;
+    };
+
     struct RequireFace {
         IFontFace* face = nullptr;   // real loaded face
         std::vector<IFontFace*> subtitutionFaces;
@@ -87,7 +92,7 @@ private:
     RequireFace* fontFace(const Font& f, bool isSymbolMode = false) const;
 
     std::vector<TextBlock> splitTextByLines(const std::u32string& text) const;
-    std::vector<TextBlock> splitTextByFontFaces(const RequireFace* rf, const TextBlock& text) const;
+    std::vector<FontFaceTextBlock> splitTextByFontFaces(const RequireFace* rf, const TextBlock& text) const;
 
     FontFaceFactory m_fontFaceFactory;
 
