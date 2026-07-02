@@ -261,46 +261,65 @@ RectF FontsEngine::boundingRect(const Font& f, const std::u32string& text) const
         return RectF();
     }
 
-    FBBox rect;      // f26dot6_t units
-    FBBox lineRect;  // f26dot6_t units
-    bool isFirstLine = true;
-    bool isFirstInLine = true;
+    FBBox rect; // f26dot6_t units
+    rect.setY(-rf->face->ascent());
+    rect.setHeight(rf->face->ascent() + rf->face->descent());
 
-    std::vector<TextBlock> lines = splitTextByLines(text);
-    for (const TextBlock& l : lines) {
-        lineRect = FBBox();
-        isFirstInLine = true;
+    f26dot6_t xOffset = 0;
+    f26dot6_t xmax = 0;
+    f26dot6_t ymax = 0;
+    bool hasGlyph = false;
 
-        std::vector<FontFaceTextBlock> fontFaceBlocks = splitTextByFontFaces(rf, l);
-        for (const FontFaceTextBlock& ffBlock : fontFaceBlocks) {
-            if (!ffBlock.face) {
+    TextBlock textBlock;
+    textBlock.text = &text[0];
+    textBlock.lenght = static_cast<int>(text.size());
+
+    std::vector<FontFaceTextBlock> fontFaceBlocks = splitTextByFontFaces(rf, textBlock);
+    for (const FontFaceTextBlock& ffBlock : fontFaceBlocks) {
+        const IFontFace* fontFace = ffBlock.face;
+        if (!fontFace) {
+            if (isZeroAdvanceText(ffBlock.text.text, ffBlock.text.lenght)) {
                 continue;
             }
 
-            std::vector<GlyphPos> glyphs = ffBlock.face->glyphs(ffBlock.text.text, ffBlock.text.lenght);
-
-            for (const GlyphPos& g : glyphs) {
-                FBBox bbox = rf->face->glyphBbox(g.idx);
-                if (isFirstInLine) {
-                    lineRect = bbox;
-                    isFirstInLine = false;
-                } else {
-                    lineRect.setWidth(lineRect.width() + bbox.width());
-                    lineRect.setHeight(std::max(lineRect.height(), bbox.height()));
-                    lineRect.setTop(std::min(lineRect.top(), bbox.top()));
-                    lineRect.setLeft(std::min(lineRect.left(), bbox.left()));
-                }
-            }
+            fontFace = rf->face;
         }
 
-        if (isFirstLine) {
-            rect = lineRect;
-            isFirstLine = false;
-        } else {
-            rect.setWidth(std::max(rect.width(), lineRect.width()));
-            rect.setHeight(rect.height() + lineRect.height());
+        std::vector<GlyphPos> glyphs = fontFace->glyphs(ffBlock.text.text, ffBlock.text.lenght);
+
+        for (const GlyphPos& g : glyphs) {
+            if (g.x_advance == 0) {
+                continue;
+            }
+
+            FBBox bbox = fontFace->glyphBbox(g.idx);
+            f26dot6_t x = xOffset + bbox.x();
+            f26dot6_t y = bbox.y();
+
+            if (!hasGlyph) {
+                rect.setX(x);
+                xmax = x + bbox.width();
+                ymax = y + bbox.height();
+                hasGlyph = true;
+            } else {
+                rect.setX(std::min(rect.x(), x));
+                xmax = std::max(xmax, x + bbox.width());
+                ymax = std::max(ymax, y + bbox.height());
+            }
+
+            rect.setY(std::min(rect.y(), y));
+            xOffset += g.x_advance;
         }
     }
+
+    if (!hasGlyph) {
+        rect.setX(0);
+        rect.setWidth(0);
+        return fromFBBox(rect, rf->pixelScale());
+    }
+
+    rect.setWidth(xmax - rect.x());
+    rect.setHeight(std::max(rect.height(), ymax - rect.y()));
 
     return fromFBBox(rect, rf->pixelScale());
 }
