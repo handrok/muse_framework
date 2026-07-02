@@ -41,6 +41,23 @@ using namespace muse::draw;
 static const double DEFAULT_PIXEL_SIZE = 100.0;
 static const double SYMBOLS_PIXEL_SIZE = 200.0;
 static const double LOADED_PIXEL_SIZE = 200.0;
+static const double FONT_METRICS_DPI = 1200.0;
+static constexpr double PPI = 72.0;
+
+static int fontMetricsPixelSize(const Font& f)
+{
+    if (f.pixelSize() > 0) {
+        return f.pixelSize();
+    }
+
+    double pixelSize = f.pointSizeF() * FONT_METRICS_DPI / PPI;
+    return static_cast<int>(std::round(pixelSize));
+}
+
+static FaceKey faceKeyForMetricsFont(const Font& f)
+{
+    return FaceKey(dataKeyForFont(f), f.type(), fontMetricsPixelSize(f));
+}
 
 static inline RectF fromFBBox(const FBBox& bb, double scale)
 {
@@ -482,7 +499,7 @@ IFontFace* FontsEngine::createFontFace(const io::path_t& path) const
 FontsEngine::RequireFace* FontsEngine::fontFace(const Font& f, bool isSymbolMode) const
 {
     //! NOTE This font is required
-    FaceKey requireKey = faceKeyForFont(f);
+    FaceKey requireKey = faceKeyForMetricsFont(f);
 
     //! NOTE If pixelSize is not set, then specify the default
     //! (this is the default pixelSize in Qt)
