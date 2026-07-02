@@ -155,7 +155,7 @@ inline bool ValIsEqual(muse::RectF p1, muse::RectF p2, double epsilon)
            && ValIsEqual(p1.width(), p2.width(), epsilon) && ValIsEqual(p1.height(), p2.height(), epsilon);
 }
 
-TEST_F(Draw_FontsProviderQtTests, DISABLED_lineSpacing)
+TEST_F(Draw_FontsProviderQtTests, lineSpacing)
 {
     Env env;
     Font f(u"Edwin", Font::Type::Text);
