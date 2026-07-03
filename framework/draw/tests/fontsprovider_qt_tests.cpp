@@ -308,7 +308,7 @@ TEST_F(Draw_FontsProviderQtTests, boundingRect_String)
     }
 }
 
-TEST_F(Draw_FontsProviderQtTests, DISABLED_tightBoundingRect_String)
+TEST_F(Draw_FontsProviderQtTests, tightBoundingRect_String)
 {
     Env env;
     Font f(u"Edwin", Font::Type::Text);
@@ -326,7 +326,7 @@ TEST_F(Draw_FontsProviderQtTests, DISABLED_tightBoundingRect_String)
     }
 }
 
-TEST_F(Draw_FontsProviderQtTests, DISABLED_tightBoundingRect_String_FreeSerif)
+TEST_F(Draw_FontsProviderQtTests, tightBoundingRect_String_FreeSerif)
 {
     Env env;
     Font f(u"FreeSerif", Font::Type::Text);
@@ -339,6 +339,7 @@ TEST_F(Draw_FontsProviderQtTests, DISABLED_tightBoundingRect_String_FreeSerif)
         muse::RectF xVal = env.xProvider.tightBoundingRect(f, str);
 
         print(f.pointSizeF(), qVal, xVal);
+        EXPECT_TRUE(ValIsEqual(qVal, xVal, 3));
     }
 }
 

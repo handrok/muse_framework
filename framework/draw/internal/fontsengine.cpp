@@ -335,60 +335,61 @@ RectF FontsEngine::tightBoundingRect(const Font& f, const std::u32string& text) 
         return RectF();
     }
 
-    FBBox rect;      // f26dot6_t units
-    FBBox lineRect;  // f26dot6_t units
-    bool isFirstLine = true;
-    bool isFirstInLine = true;
+    FBBox rect; // f26dot6_t units
+    f26dot6_t xOffset = 0;
+    f26dot6_t xmax = 0;
+    f26dot6_t ymax = 0;
+    bool hasGlyph = false;
 
-    std::vector<TextBlock> lines = splitTextByLines(text);
-    for (const TextBlock& l : lines) {
-        lineRect = FBBox();
-        isFirstInLine = true;
-        f26dot6_t advance = 0;
+    TextBlock textBlock;
+    textBlock.text = &text[0];
+    textBlock.lenght = static_cast<int>(text.size());
 
-        std::vector<FontFaceTextBlock> fontFaceBlocks = splitTextByFontFaces(rf, l);
-
-        GlyphPos lastGlyph;
-        const IFontFace* lastGlyphFace = nullptr;
-        for (const FontFaceTextBlock& ffBlock : fontFaceBlocks) {
-            if (!ffBlock.face) {
+    std::vector<FontFaceTextBlock> fontFaceBlocks = splitTextByFontFaces(rf, textBlock);
+    for (const FontFaceTextBlock& ffBlock : fontFaceBlocks) {
+        const IFontFace* fontFace = ffBlock.face;
+        if (!fontFace) {
+            if (isZeroAdvanceText(ffBlock.text.text, ffBlock.text.lenght)) {
                 continue;
             }
 
-            std::vector<GlyphPos> glyphs = ffBlock.face->glyphs(ffBlock.text.text, ffBlock.text.lenght);
+            fontFace = rf->face;
+        }
 
-            for (const GlyphPos& g : glyphs) {
-                FBBox bbox = rf->face->glyphBbox(g.idx);
-                if (isFirstInLine) {
-                    lineRect = bbox;
-                    isFirstInLine = false;
-                } else {
-                    /// width is calculated as x_advance instead
-                    lineRect.setTop(std::min(lineRect.top(), bbox.top()));
-                    lineRect.setLeft(std::min(lineRect.left(), bbox.left()));
-                    lineRect.setBottom(std::max(lineRect.bottom(), bbox.bottom()));
-                }
-                advance += g.x_advance;
+        std::vector<GlyphPos> glyphs = fontFace->glyphs(ffBlock.text.text, ffBlock.text.lenght);
+
+        for (const GlyphPos& g : glyphs) {
+            if (g.x_advance == 0) {
+                continue;
             }
-            lastGlyph = glyphs.back();
-            lastGlyphFace = ffBlock.face;
-        }
 
-        IF_ASSERT_FAILED(lastGlyphFace) {
-            continue;
-        }
+            FBBox bbox = fontFace->glyphBbox(g.idx);
+            f26dot6_t x = xOffset + bbox.x();
+            f26dot6_t y = bbox.y();
 
-        advance -= (lastGlyph.x_advance - lastGlyphFace->glyphBbox(lastGlyph.idx).width());
-        lineRect.setWidth(advance);
+            if (!hasGlyph) {
+                rect.setX(x);
+                rect.setY(y);
+                xmax = x + bbox.width();
+                ymax = y + bbox.height();
+                hasGlyph = true;
+            } else {
+                rect.setX(std::min(rect.x(), x));
+                rect.setY(std::min(rect.y(), y));
+                xmax = std::max(xmax, x + bbox.width());
+                ymax = std::max(ymax, y + bbox.height());
+            }
 
-        if (isFirstLine) {
-            rect = lineRect;
-            isFirstLine = false;
-        } else {
-            rect.setWidth(std::max(rect.width(), lineRect.width()));
-            rect.setHeight(rect.height() + lineRect.height());
+            xOffset += g.x_advance;
         }
     }
+
+    if (!hasGlyph) {
+        return RectF();
+    }
+
+    rect.setWidth(xmax - rect.x());
+    rect.setHeight(ymax - rect.y());
 
     return fromFBBox(rect, rf->pixelScale());
 }
@@ -475,44 +476,42 @@ std::vector<GlyphImage> FontsEngine::render(const Font& f, const std::u32string&
 
     std::vector<GlyphImage> images;
 
-    UNUSED(text);
+    if (text.empty()) {
+        return images;
+    }
 
 #ifndef MUSE_MODULE_DRAW_USE_QTTEXTDRAW
-    int pixelSize = rf->requireKey.pixelSize;
     double pixelScale = rf->pixelScale();
-    double glyphTop = 0;
+    double glyphLeft = 0;
 
-    std::vector<TextBlock> lines = splitTextByLines(text);
-    for (const TextBlock& l : lines) {
-        double glyphLeft = 0;
+    TextBlock textBlock;
+    textBlock.text = &text[0];
+    textBlock.lenght = static_cast<int>(text.size());
 
-        std::vector<FontFaceTextBlock> fontFaceBlocks = splitTextByFontFaces(rf, l);
-        for (const FontFaceTextBlock& ffBlock : fontFaceBlocks) {
-            if (!ffBlock.face) {
-                continue;
-            }
-
-            std::vector<GlyphPos> glyphs = ffBlock.face->glyphs(ffBlock.text.text, ffBlock.text.lenght);
-
-            for (const GlyphPos& g : glyphs) {
-                if (NOT_RENDER_GLYPHS.find(g.idx) == NOT_RENDER_GLYPHS.end()) {
-                    GlyphImage image;// = m_renderCache.load(ffBlock.face->key(), g.idx);
-                    if (image.isNull()) {
-                        generateSdf(image, g.idx, ffBlock.face);
-                        //m_renderCache.store(ffBlock.face->key(), g.idx, image);
-                    }
-
-                    image.rect = scaleRect(image.rect, pixelScale);
-                    image.rect.translate(glyphLeft, glyphTop);
-
-                    images.push_back(std::move(image));
-                }
-
-                glyphLeft += from_f26d6(g.x_advance) * pixelScale;
-            }
+    std::vector<FontFaceTextBlock> fontFaceBlocks = splitTextByFontFaces(rf, textBlock);
+    for (const FontFaceTextBlock& ffBlock : fontFaceBlocks) {
+        if (!ffBlock.face) {
+            continue;
         }
 
-        glyphTop += (pixelSize * TEXT_LINE_SCALE);
+        std::vector<GlyphPos> glyphs = ffBlock.face->glyphs(ffBlock.text.text, ffBlock.text.lenght);
+
+        for (const GlyphPos& g : glyphs) {
+            if (NOT_RENDER_GLYPHS.find(g.idx) == NOT_RENDER_GLYPHS.end()) {
+                GlyphImage image;// = m_renderCache.load(ffBlock.face->key(), g.idx);
+                if (image.isNull()) {
+                    generateSdf(image, g.idx, ffBlock.face);
+                    //m_renderCache.store(ffBlock.face->key(), g.idx, image);
+                }
+
+                image.rect = scaleRect(image.rect, pixelScale);
+                image.rect.translate(glyphLeft, 0);
+
+                images.push_back(std::move(image));
+            }
+
+            glyphLeft += from_f26d6(g.x_advance) * pixelScale;
+        }
     }
 #endif
 
@@ -634,33 +633,6 @@ FontsEngine::RequireFace* FontsEngine::fontFace(const Font& f, bool isSymbolMode
     m_requiredFaces.push_back(newFont);
 
     return newFont;
-}
-
-std::vector<FontsEngine::TextBlock> FontsEngine::splitTextByLines(const std::u32string& text) const
-{
-    std::vector<TextBlock> lines;
-
-    TextBlock l;
-    for (size_t i = 0; i < text.size(); ++i) {
-        if (!l.text) {
-            l.text = &text[i];
-        }
-
-        if (text.at(i) == U'\n') {
-            lines.push_back(l);
-            l.text = nullptr;
-            l.lenght = 0;
-        }
-        ++l.lenght;
-
-        if (i == (text.size() - 1)) {
-            lines.push_back(l);
-            l.text = nullptr;
-            l.lenght = 0;
-        }
-    }
-
-    return lines;
 }
 
 std::vector<FontsEngine::FontFaceTextBlock> FontsEngine::splitTextByFontFaces(const RequireFace* rf, const TextBlock& text) const
