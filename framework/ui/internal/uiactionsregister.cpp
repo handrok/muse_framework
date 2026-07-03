@@ -45,9 +45,11 @@ void UiActionsRegister::init()
         });
     }
 
-    commandsState()->commandStateChanged().onReceive(this, [this](const rcommand::Command& command, const rcommand::CommandState&) {
-        m_actionStateChanged.send({ command.toString() });
-    });
+    if (commandsState()) {
+        commandsState()->commandStateChanged().onReceive(this, [this](const rcommand::Command& command, const rcommand::CommandState&) {
+            m_actionStateChanged.send({ command.toString() });
+        });
+    }
 }
 
 void UiActionsRegister::reg(const IUiActionsModulePtr& module)
