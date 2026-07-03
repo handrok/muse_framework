@@ -35,6 +35,7 @@
 #include "ishortcutsregister.h"
 #include "icommandshortcutsregister.h"
 #include "shortcutcontext.h"
+#include "../ishortcutsresolver.h"
 
 namespace muse::shortcuts {
 class ShortcutsController : public IShortcutsController, public Contextable, public async::Asyncable
@@ -50,6 +51,7 @@ class ShortcutsController : public IShortcutsController, public Contextable, pub
 
     //! NOTE May be missing because it must be implemented outside the framework
     ContextInject<IShortcutContextPriority> shortcutContextPriority = { this };
+    ContextInject<IShortcutsResolver> shortcutsResolver = { this };
 
 public:
     ShortcutsController(const modularity::ContextPtr& iocCtx)
