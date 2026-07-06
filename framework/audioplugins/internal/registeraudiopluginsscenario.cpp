@@ -336,7 +336,8 @@ void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t&
             fileSystem()->remove(resultFile);
 
             const int code = process()->execute(appPath,
-                                                { "--register-audio-plugin", pluginPathStr, "--out", resultFile.toStdString() },
+                                                { "--register-audio-plugin", pluginPathStr, "--register-audio-plugin-out",
+                                                  resultFile.toStdString() },
                                                 AUDIO_PLUGIN_REGISTRATION_TIMEOUT_MS,
                                                 [this]() { return m_aborted.load() || m_progress.isCanceled(); });
 

@@ -189,10 +189,10 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry)
     .Times(1);
 
     // [THEN] Processes started only for unregistered plugins; each gets an
-    // --out file, the main process is the sole cache writer.
+    // --register-audio-plugin-out file, the main process is the sole cache writer.
     paths_t alreadyRegisteredPaths { foundPluginPaths[0], foundPluginPaths[1] };
     for (const path_t& pluginPath : foundPluginPaths) {
-        auto argsMatch = ElementsAre("--register-audio-plugin", pluginPath.toStdString(), "--out", _);
+        auto argsMatch = ElementsAre("--register-audio-plugin", pluginPath.toStdString(), "--register-audio-plugin-out", _);
 
         if (muse::contains(alreadyRegisteredPaths, pluginPath)) {
             // Ignore already registered plugins
@@ -512,7 +512,8 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry_Left
     .WillOnce(Return(make_ok()));
 
     EXPECT_CALL(*m_process, execute(m_appPath,
-                                    ElementsAre("--register-audio-plugin", "/some/path/CRASHED.vst3", "--out", _), _, _))
+                                    ElementsAre("--register-audio-plugin", "/some/path/CRASHED.vst3", "--register-audio-plugin-out", _), _,
+                                    _))
     .WillOnce(Return(0));
 
     // [THEN] register loaded twice (once after registerNewPlugins, once at end of updatePluginsRegistry)
@@ -629,7 +630,8 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, FailedValidationRecordsErr
 
     // [GIVEN] The subprocess exits with a failure code
     EXPECT_CALL(*m_process, execute(m_appPath,
-                                    ElementsAre("--register-audio-plugin", pluginPath.toStdString(), "--out", _), _, _))
+                                    ElementsAre("--register-audio-plugin",
+                                                pluginPath.toStdString(), "--register-audio-plugin-out", _), _, _))
     .WillOnce(Return(-42));
 
     // [THEN] The main process records the Error entry itself (no second
@@ -664,7 +666,8 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, TimedOutValidationRecordsE
 
     // [GIVEN] The subprocess wrapper killed the hung validator
     EXPECT_CALL(*m_process, execute(m_appPath,
-                                    ElementsAre("--register-audio-plugin", pluginPath.toStdString(), "--out", _), _, _))
+                                    ElementsAre("--register-audio-plugin",
+                                                pluginPath.toStdString(), "--register-audio-plugin-out", _), _, _))
     .WillOnce(Return(muse::IProcess::ExecuteTimeoutCode));
 
     // [THEN] The plugin is recorded as failed with the timeout code
@@ -714,7 +717,8 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, CanceledValidationDoesNotR
     .Times(0);
 
     EXPECT_CALL(*m_process, execute(m_appPath,
-                                    ElementsAre("--register-audio-plugin", pluginPath.toStdString(), "--out", _), _, _))
+                                    ElementsAre("--register-audio-plugin",
+                                                pluginPath.toStdString(), "--register-audio-plugin-out", _), _, _))
     .WillOnce([&progress](const std::string&, const std::vector<std::string>&, int,
                           const std::function<bool()>& shouldCancel) {
         progress.cancel();
@@ -784,10 +788,10 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, RegisterNewPlugins_MainApp
     .Times(2)
     .WillRepeatedly(Return(make_ok()));
 
-    // [THEN] One subprocess invocation per path, each handed an --out file
+    // [THEN] One subprocess invocation per path, each handed an --register-audio-plugin-out file
     for (const path_t& path : paths) {
         EXPECT_CALL(*m_process, execute(m_appPath,
-                                        ElementsAre("--register-audio-plugin", path.toStdString(), "--out", _), _, _))
+                                        ElementsAre("--register-audio-plugin", path.toStdString(), "--register-audio-plugin-out", _), _, _))
         .WillOnce(Return(0));
     }
 
