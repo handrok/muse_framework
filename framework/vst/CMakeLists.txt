@@ -28,6 +28,7 @@ target_sources(muse_vst PRIVATE
     ivstinstancesregister.h
     ivstplugininstance.h
     vsterrors.h
+    vstpluginattrs.h
     vsttypes.h
     vstmodule.cpp
     vstmodule.h

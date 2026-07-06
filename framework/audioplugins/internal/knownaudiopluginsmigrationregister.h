@@ -5,7 +5,7 @@
  * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2024 MuseScore Limited and others
+ * Copyright (C) 2026 MuseScore Limited and others
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -19,29 +19,22 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 #pragma once
 
-#include "../iaudiopluginsconfiguration.h"
+#include <map>
 
-#include "modularity/ioc.h"
-#include "global/iglobalconfiguration.h"
+#include "../iknownaudiopluginsmigrationregister.h"
 
 namespace muse::audioplugins {
-class AudioPluginsConfiguration : public IAudioPluginsConfiguration, public muse::Contextable
+class KnownAudioPluginsMigrationRegister : public IKnownAudioPluginsMigrationRegister
 {
-    muse::GlobalInject<IGlobalConfiguration> globalConfiguration;
-
 public:
-    AudioPluginsConfiguration(const muse::modularity::ContextPtr& iocCtx)
-        : Contextable(iocCtx) {}
+    KnownAudioPluginsMigrationRegister();
 
-    io::path_t knownAudioPluginsFilePath() const override;
-
-    const PluginAttributes& runtimeAttributeDefaults() const override;
-    void setRuntimeAttributeDefaults(const PluginAttributes& defaults) override;
+    void registerMigration(int fromVersion, PluginsMigration cb) override;
+    Ret migrate(int fromVersion, int toVersion, JsonArray& plugins) const override;
 
 private:
-    PluginAttributes m_runtimeAttributeDefaults;
+    std::map<int, PluginsMigration> m_migrations;
 };
 }

@@ -2,10 +2,10 @@
  * SPDX-License-Identifier: GPL-3.0-only
  * MuseScore-CLA-applies
  *
- * MuseScore Studio
+ * MuseScore
  * Music Composition & Notation
  *
- * Copyright (C) 2024 MuseScore Limited and others
+ * Copyright (C) 2026 MuseScore Limited and others
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -19,29 +19,28 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 #pragma once
 
-#include "../iaudiopluginsconfiguration.h"
+#include <functional>
 
-#include "modularity/ioc.h"
-#include "global/iglobalconfiguration.h"
+#include "modularity/imoduleinterface.h"
+
+#include "global/serialization/json.h"
+#include "global/types/ret.h"
 
 namespace muse::audioplugins {
-class AudioPluginsConfiguration : public IAudioPluginsConfiguration, public muse::Contextable
+inline constexpr int CURRENT_KNOWN_AUDIO_PLUGINS_VERSION = 4;
+
+class IKnownAudioPluginsMigrationRegister : MODULE_GLOBAL_INTERFACE
 {
-    muse::GlobalInject<IGlobalConfiguration> globalConfiguration;
+    INTERFACE_ID(IKnownAudioPluginsMigrationRegister)
 
 public:
-    AudioPluginsConfiguration(const muse::modularity::ContextPtr& iocCtx)
-        : Contextable(iocCtx) {}
+    virtual ~IKnownAudioPluginsMigrationRegister() = default;
 
-    io::path_t knownAudioPluginsFilePath() const override;
+    using PluginsMigration = std::function<JsonArray (const JsonArray&)>;
 
-    const PluginAttributes& runtimeAttributeDefaults() const override;
-    void setRuntimeAttributeDefaults(const PluginAttributes& defaults) override;
-
-private:
-    PluginAttributes m_runtimeAttributeDefaults;
+    virtual void registerMigration(int fromVersion, PluginsMigration cb) = 0;
+    virtual Ret migrate(int fromVersion, int toVersion, JsonArray& plugins) const = 0;
 };
 }

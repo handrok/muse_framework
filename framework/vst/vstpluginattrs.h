@@ -2,10 +2,10 @@
  * SPDX-License-Identifier: GPL-3.0-only
  * MuseScore-CLA-applies
  *
- * MuseScore Studio
+ * MuseScore
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore Limited and others
+ * Copyright (C) 2026 MuseScore Limited and others
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -19,24 +19,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#pragma once
+#ifndef MUSE_VST_VSTPLUGINATTRS_H
+#define MUSE_VST_VSTPLUGINATTRS_H
 
-#include "../audiopluginstypes.h"
+#include <string_view>
 
-namespace muse::audioplugins {
-inline AudioPluginType audioPluginTypeFromCategoriesString(const String& categoriesStr)
-{
-    static const std::vector<std::pair<String, AudioPluginType> > STRING_TO_PLUGIN_TYPE_LIST = {
-        { u"Instrument", AudioPluginType::Instrument },
-        { u"Fx", AudioPluginType::Fx },
-    };
+#include "global/types/string.h"
 
-    for (auto it = STRING_TO_PLUGIN_TYPE_LIST.cbegin(); it != STRING_TO_PLUGIN_TYPE_LIST.cend(); ++it) {
-        if (categoriesStr.contains(it->first)) {
-            return it->second;
-        }
-    }
+namespace muse::vst {
+inline constexpr std::string_view AUDIO_RESOURCE_TYPE_NAME = "VstPlugin";
 
-    return AudioPluginType::Undefined;
+inline const String CATEGORIES_ATTRIBUTE(u"categories");
+
+// Marks a VST as an instrument rather than an FX; shared contract between
+// the meta reader (producer) and modulesMetaList (consumer).
+inline const String INSTRUMENT_CATEGORY(u"Instrument");
 }
-}
+
+#endif // MUSE_VST_VSTPLUGINATTRS_H

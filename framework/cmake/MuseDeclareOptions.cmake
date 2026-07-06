@@ -36,6 +36,7 @@ option(MUSE_MODULE_AUDIO_EXPORT "Enable audio export" ON)
 set(MUSE_MODULE_AUDIO_WORKMODE 3 CACHE STRING "Audio subsystem work mode")
 
 declare_muse_module_opt(AUDIOPLUGINS ON)
+option(MUSE_MODULE_AUDIOPLUGINS_SCAN_TRACE "Enable audio plugin scan logging" OFF)
 
 declare_muse_module_opt(AUTOMATION ON)
 

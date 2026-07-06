@@ -2,10 +2,10 @@
  * SPDX-License-Identifier: GPL-3.0-only
  * MuseScore-CLA-applies
  *
- * MuseScore Studio
+ * MuseScore
  * Music Composition & Notation
  *
- * Copyright (C) 2024 MuseScore Limited and others
+ * Copyright (C) 2026 MuseScore Limited and others
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -19,29 +19,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 #pragma once
 
-#include "../iaudiopluginsconfiguration.h"
+#include <gmock/gmock.h>
 
-#include "modularity/ioc.h"
-#include "global/iglobalconfiguration.h"
+#include "audioplugins/iknownaudiopluginsmigrationregister.h"
 
 namespace muse::audioplugins {
-class AudioPluginsConfiguration : public IAudioPluginsConfiguration, public muse::Contextable
+class KnownAudioPluginsMigrationRegisterMock : public IKnownAudioPluginsMigrationRegister
 {
-    muse::GlobalInject<IGlobalConfiguration> globalConfiguration;
-
 public:
-    AudioPluginsConfiguration(const muse::modularity::ContextPtr& iocCtx)
-        : Contextable(iocCtx) {}
-
-    io::path_t knownAudioPluginsFilePath() const override;
-
-    const PluginAttributes& runtimeAttributeDefaults() const override;
-    void setRuntimeAttributeDefaults(const PluginAttributes& defaults) override;
-
-private:
-    PluginAttributes m_runtimeAttributeDefaults;
+    MOCK_METHOD(void, registerMigration, (int fromVersion, PluginsMigration cb), (override));
+    MOCK_METHOD(Ret, migrate, (int fromVersion, int toVersion, JsonArray & plugins), (const, override));
 };
 }
