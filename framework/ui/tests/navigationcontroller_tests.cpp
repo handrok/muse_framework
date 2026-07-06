@@ -27,7 +27,8 @@
 #include <QQuickWindow>
 
 #include "ui/internal/navigationcontroller.h"
-#include "actions/internal/actionsdispatcher.h"
+#include "rcommand/internal/commanddispatcher.h"
+#include "ui/navigationcommands.h"
 
 #include "global/tests/mocks/applicationmock.h"
 #include "ui/tests/mocks/mainwindowmock.h"
@@ -52,7 +53,7 @@ public:
     {
         m_controller = std::make_shared<NavigationController>(nullptr);
 
-        m_dispatcher = std::make_shared<actions::ActionsDispatcher>();
+        m_dispatcher = std::make_shared<rcommand::CommandDispatcher>();
         m_controller->dispatcher.set(m_dispatcher);
 
         m_mainWindow = std::make_shared<ui::MainWindowMock>();
@@ -292,7 +293,7 @@ public:
     }
 
     std::shared_ptr<NavigationController> m_controller;
-    std::shared_ptr<actions::IActionsDispatcher> m_dispatcher;
+    std::shared_ptr<rcommand::CommandDispatcher> m_dispatcher;
     std::shared_ptr<MainWindowMock> m_mainWindow;
     std::shared_ptr<muse::ApplicationMock> m_applicationMock;
 
@@ -313,8 +314,8 @@ TEST_F(Ui_NavigationControllerTests, FirstActiveOnNextSection)
     m_controller->reg(sect1->section);
     m_controller->reg(sect2->section);
 
-    //! [WHEN] Send action `nav-next-section` (usually F6)
-    m_dispatcher->dispatch("nav-next-section");
+    //! [WHEN] Send action `next-section` (usually F6)
+    m_dispatcher->dispatch(NEXT_SECTION_COMMAND);
 
     //! [THEN] The first section, the first panel, the first control must be activated
     EXPECT_TRUE(sect1->section->active());
@@ -349,7 +350,7 @@ TEST_F(Ui_NavigationControllerTests, FirstActiveOnNextPanelOnExclusiveSection)
     sect2->panels.back()->panel->requestActive();
 
     //! [WHEN] Send action `nav-next-panel` (usually Tab)
-    m_dispatcher->dispatch("nav-next-panel");
+    m_dispatcher->dispatch(NEXT_PANEL_COMMAND);
 
     //! [THEN] The second section, the first panel, the first control must be activated
     EXPECT_TRUE(sect2->section->active());
@@ -379,7 +380,7 @@ TEST_F(Ui_NavigationControllerTests, FirstActiveOnNextSectionOnExclusiveSection)
     sect2->section->requestActive();
 
     //! [WHEN] Send action `nav-next-section` (usually F6)
-    m_dispatcher->dispatch("nav-next-section");
+    m_dispatcher->dispatch(NEXT_SECTION_COMMAND);
 
     //! [THEN] The second section, the first panel, the first control must be activated
     EXPECT_TRUE(sect2->section->active());
@@ -410,7 +411,7 @@ TEST_F(Ui_NavigationControllerTests, FirstActiveOnNextSectionExclusive)
     sect2->section->requestActive();
 
     //! [WHEN] Send action `nav-next-section` (usually F6)
-    m_dispatcher->dispatch("nav-next-section");
+    m_dispatcher->dispatch(NEXT_SECTION_COMMAND);
 
     //! [THEN] The second section, the first panel, the first control must be activated
     EXPECT_TRUE(sect2->section->active());
@@ -441,7 +442,7 @@ TEST_F(Ui_NavigationControllerTests, FirstActiveOnPrevSectionExclusive)
     sect2->section->requestActive();
 
     //! [WHEN] Send action `nav-prev-section` (usually Shift+F6)
-    m_dispatcher->dispatch("nav-prev-section");
+    m_dispatcher->dispatch(PREV_SECTION_COMMAND);
 
     //! [THEN] The second section, the first panel, the first control must be activated
     EXPECT_TRUE(sect2->section->active());
@@ -467,7 +468,7 @@ TEST_F(Ui_NavigationControllerTests, FirstActiveOnNextPanel)
     m_controller->reg(sect2->section);
 
     //! DO Send action `nav-next-panel` (usually Tab)
-    m_dispatcher->dispatch("nav-next-panel");
+    m_dispatcher->dispatch(NEXT_PANEL_COMMAND);
 
     //! [THEN] The first section, the first panel, the first control must be activated
     EXPECT_TRUE(sect1->section->active());
@@ -493,7 +494,7 @@ TEST_F(Ui_NavigationControllerTests, FirstActiveOnPrevSection)
     m_controller->reg(sect2->section);
 
     //! [WHEN] Send action `nav-prev-section` (usually Shift+F6)
-    m_dispatcher->dispatch("nav-prev-section");
+    m_dispatcher->dispatch(PREV_SECTION_COMMAND);
 
     //! [THEN] The last section, the first panel, the first control must be activated.
     EXPECT_TRUE(sect2->section->active());
@@ -519,7 +520,7 @@ TEST_F(Ui_NavigationControllerTests, FirstActiveOnPrevPanel)
     m_controller->reg(sect2->section);
 
     //! [WHEN] Send action `nav-prev-panel` (usually Shift+Tab)
-    m_dispatcher->dispatch("nav-prev-panel");
+    m_dispatcher->dispatch(PREV_PANEL_COMMAND);
 
     //! [THEN] The second section, the first panel, the first control must be activated
     EXPECT_TRUE(sect2->section->active());
@@ -549,7 +550,7 @@ TEST_F(Ui_NavigationControllerTests, UserPressedSomeKeyHasActiveKey)
     m_controller->setIsHighlight(false);
 
     //! [WHEN] The user has requested the activation of navigation on any key
-    m_dispatcher->dispatch("nav-right");
+    m_dispatcher->dispatch(RIGHT_COMMAND);
 
     //! [THEN] Next control and highlight must be activated
     EXPECT_EQ(m_controller->activeControl(), sect1->panels[1]->controls[2]->control);
@@ -700,7 +701,7 @@ TEST_F(Ui_NavigationControllerTests, RightWrapsToFirstOnHorizontalPanel)
     sect->panels[0]->controls[2]->control->requestActive();
 
     //! [WHEN] Navigate right
-    m_dispatcher->dispatch("nav-right");
+    m_dispatcher->dispatch(RIGHT_COMMAND);
 
     //! [THEN] First control becomes active (wraps around)
     EXPECT_EQ(m_controller->activeControl(), sect->panels[0]->controls[0]->control);
@@ -720,7 +721,7 @@ TEST_F(Ui_NavigationControllerTests, LeftWrapsToLastOnHorizontalPanel)
     sect->panels[0]->controls[0]->control->requestActive();
 
     //! [WHEN] Navigate left
-    m_dispatcher->dispatch("nav-left");
+    m_dispatcher->dispatch(LEFT_COMMAND);
 
     //! [THEN] Last control becomes active (wraps around)
     EXPECT_EQ(m_controller->activeControl(), sect->panels[0]->controls[2]->control);
@@ -740,7 +741,7 @@ TEST_F(Ui_NavigationControllerTests, DownWrapsToFirstOnVerticalPanel)
     sect->panels[0]->controls[2]->control->requestActive();
 
     //! [WHEN] Navigate down
-    m_dispatcher->dispatch("nav-down");
+    m_dispatcher->dispatch(DOWN_COMMAND);
 
     //! [THEN] First control becomes active (wraps around)
     EXPECT_EQ(m_controller->activeControl(), sect->panels[0]->controls[0]->control);
@@ -760,7 +761,7 @@ TEST_F(Ui_NavigationControllerTests, UpWrapsToLastOnVerticalPanel)
     sect->panels[0]->controls[0]->control->requestActive();
 
     //! [WHEN] Navigate up
-    m_dispatcher->dispatch("nav-up");
+    m_dispatcher->dispatch(UP_COMMAND);
 
     //! [THEN] Last control becomes active (wraps around)
     EXPECT_EQ(m_controller->activeControl(), sect->panels[0]->controls[2]->control);

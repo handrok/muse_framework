@@ -23,6 +23,14 @@
 
 #include "log.h"
 
+#define SHORTCUTS_DEBUG 1
+
+#if SHORTCUTS_DEBUG
+#define SC_LOG() LOGDA() << "[SC] "
+#else
+#define SC_LOG() LOGN()
+#endif
+
 using namespace muse::shortcuts;
 using namespace muse::actions;
 using namespace muse::rcommand;
@@ -44,12 +52,14 @@ void ShortcutsController::activate(const std::string& sequence)
     {
         ShortcutList allowedShortcuts;
         const ShortcutList& commandShortcuts = commandShortcutsRegister()->shortcutsForSequence(sequence);
+        SC_LOG() << "commandShortcuts: " << commandShortcuts.size();
         for (const Shortcut& sc : commandShortcuts) {
             const Command& command = Command(sc.command);
             if (commandsState()->commandState(command).enabled) {
                 allowedShortcuts.push_back(sc);
             }
         }
+        SC_LOG() << "allowedShortcuts: " << allowedShortcuts.size();
 
         Shortcut selectedShortcut;
         if (allowedShortcuts.size() == 1) {
@@ -61,7 +71,7 @@ void ShortcutsController::activate(const std::string& sequence)
                 selectedShortcut = allowedShortcuts.front();
             }
         }
-
+        SC_LOG() << "selectedShortcut: " << selectedShortcut.command;
         if (selectedShortcut.isValid()) {
             commandDispatcher()->dispatch(Command(selectedShortcut.command));
             commandShortcutsProcessed = true;

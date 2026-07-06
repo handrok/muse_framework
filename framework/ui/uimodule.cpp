@@ -26,6 +26,10 @@
 
 #include "modularity/ioc.h"
 
+#include "rcommand/imodulecommandsregister.h"
+#include "internal/navigationcommandsregister.h"
+#include "internal/navigationcommandsstate.h"
+
 #include "internal/uiengine.h"
 #include "internal/mainwindow.h"
 #include "internal/uiconfiguration.h"
@@ -33,7 +37,6 @@
 #include "internal/uistate.h"
 #include "internal/uiactionsregister.h"
 #include "internal/navigationcontroller.h"
-#include "internal/navigationuiactions.h"
 #include "internal/dragcontroller.h"
 #include "view/iconcodes.h"
 
@@ -95,6 +98,10 @@ void UiModule::registerExports()
 
 void UiModule::resolveImports()
 {
+    auto cr = globalIoc()->resolve<muse::rcommand::ICommandsRegister>(module_name);
+    if (cr) {
+        cr->reg(std::make_shared<NavigationCommandsRegister>());
+    }
 }
 
 void UiModule::registerApi()
@@ -178,9 +185,9 @@ void UiModuleContext::registerExports()
 
 void UiModuleContext::resolveImports()
 {
-    auto ar = ioc()->resolve<IUiActionsRegister>(module_name);
-    if (ar) {
-        ar->reg(std::make_shared<NavigationUiActions>());
+    auto cs = ioc()->resolve<muse::rcommand::ICommandsState>(module_name);
+    if (cs) {
+        cs->reg(std::make_shared<NavigationCommandsState>(iocContext()));
     }
 }
 
