@@ -91,7 +91,6 @@ private:
     IFontFace* createFontFace(const io::path_t& path) const;
     RequireFace* fontFace(const Font& f, bool isSymbolMode = false) const;
 
-    std::vector<TextBlock> splitTextByLines(const std::u32string& text) const;
     std::vector<FontFaceTextBlock> splitTextByFontFaces(const RequireFace* rf, const TextBlock& text) const;
 
     FontFaceFactory m_fontFaceFactory;
