@@ -27,7 +27,6 @@
 
 using namespace muse::audio;
 using namespace muse::audio::rpc;
-using namespace muse::actions;
 
 void TransportEventsController::init()
 {
