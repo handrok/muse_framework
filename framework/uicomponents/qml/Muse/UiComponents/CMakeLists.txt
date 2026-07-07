@@ -48,6 +48,8 @@ qt_add_qml_module(muse_uicomponents_qml
         iconview.h
         internal/focuslistener.cpp
         internal/focuslistener.h
+        internal/polylinepointstyle.h
+        internal/polylinepointstyle.cpp
         internal/popupviewclosecontroller.cpp
         internal/popupviewclosecontroller.h
         internal/tableviewheader.cpp
