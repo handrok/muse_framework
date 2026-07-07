@@ -288,10 +288,6 @@ RectF FontsEngine::boundingRect(const Font& f, const std::u32string& text) const
         std::vector<GlyphPos> glyphs = fontFace->glyphs(ffBlock.text.text, ffBlock.text.lenght);
 
         for (const GlyphPos& g : glyphs) {
-            if (g.x_advance == 0) {
-                continue;
-            }
-
             FBBox bbox = fontFace->glyphBbox(g.idx);
             f26dot6_t x = xOffset + bbox.x();
             f26dot6_t y = bbox.y();
@@ -359,10 +355,6 @@ RectF FontsEngine::tightBoundingRect(const Font& f, const std::u32string& text) 
         std::vector<GlyphPos> glyphs = fontFace->glyphs(ffBlock.text.text, ffBlock.text.lenght);
 
         for (const GlyphPos& g : glyphs) {
-            if (g.x_advance == 0) {
-                continue;
-            }
-
             FBBox bbox = fontFace->glyphBbox(g.idx);
             f26dot6_t x = xOffset + bbox.x();
             f26dot6_t y = bbox.y();
