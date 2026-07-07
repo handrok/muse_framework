@@ -37,6 +37,7 @@ target_sources(muse_ui PRIVATE
     inavigationcontroller.h
     idragcontroller.h
     iwindowscontroller.h
+    navigationcommands.h
 
     graphicsapiprovider.cpp
     graphicsapiprovider.h
@@ -65,10 +66,12 @@ target_sources(muse_ui PRIVATE
     internal/iplatformtheme.h
     internal/uiactionsregister.cpp
     internal/uiactionsregister.h
+    internal/navigationcommandsregister.cpp
+    internal/navigationcommandsregister.h
+    internal/navigationcommandsstate.cpp
+    internal/navigationcommandsstate.h
     internal/navigationcontroller.cpp
     internal/navigationcontroller.h
-    internal/navigationuiactions.cpp
-    internal/navigationuiactions.h
     internal/uiarrangement.cpp
     internal/uiarrangement.h
     internal/dragcontroller.cpp

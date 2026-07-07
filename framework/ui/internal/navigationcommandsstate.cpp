@@ -1,11 +1,11 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-only
- * MuseScore-CLA-applies
+ * MuseScore-Studio-CLA-applies
  *
  * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore Limited and others
+ * Copyright (C) MuseScore Limited and others
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -20,17 +20,32 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "testing/environment.h"
+#include "navigationcommandsstate.h"
 
-#include "log.h"
-#include "framework/rcommand/rcommandmodule.h"
+using namespace muse;
+using namespace muse::rcommand;
+using namespace muse::ui;
 
-static muse::testing::SuiteEnvironment ui_senv(
+std::string NavigationCommandsState::moduleName() const
 {
-    new muse::rcommand::RCommandModule()
-},
-    nullptr,
-    []() {
-    LOGI() << "ui tests suite post init";
+    return "navigation";
 }
-    );
+
+void NavigationCommandsState::init()
+{
+}
+
+void NavigationCommandsState::deinit()
+{
+}
+
+CommandState NavigationCommandsState::commandState(const Command&) const
+{
+    return muse::rcommand::CommandState(true, false);
+}
+
+async::Channel<Command, CommandState> NavigationCommandsState::commandStateChanged() const
+{
+    static async::Channel<Command, CommandState> channel;
+    return channel;
+}

@@ -5,7 +5,7 @@
  * MuseScore Studio
  * Music Composition & Notation
  *
- * Copyright (C) 2021 MuseScore Limited and others
+ * Copyright (C) 2026 MuseScore Limited and others
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as
@@ -19,18 +19,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#pragma once
 
-#include "testing/environment.h"
+#include "rcommand/imodulecommandsregister.h"
 
-#include "log.h"
-#include "framework/rcommand/rcommandmodule.h"
-
-static muse::testing::SuiteEnvironment ui_senv(
+namespace muse::ui {
+class NavigationCommandsRegister : public muse::rcommand::IModuleCommandsRegister
 {
-    new muse::rcommand::RCommandModule()
-},
-    nullptr,
-    []() {
-    LOGI() << "ui tests suite post init";
+public:
+    NavigationCommandsRegister() = default;
+
+    std::string moduleName() const override;
+
+    const std::vector<muse::rcommand::Command>& commandList() const override;
+    const std::vector<muse::rcommand::CommandInfo>& commandInfoList() const override;
+};
 }
-    );

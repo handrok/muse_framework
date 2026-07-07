@@ -42,7 +42,7 @@ inline static ActionCodeList allMidiActions()
 {
     return {
         "command://playback/rewind",
-        "command://playback/loop",
+        "command://playback/loop-toggle",
         "command://playback/play",
         "command://playback/stop",
         "note-input",

@@ -30,7 +30,10 @@
 
 #include "global/defer.h"
 
+#include "../navigationcommands.h"
+
 #include "muse_framework_config.h"
+#include "types/ret.h"
 
 #ifdef MUSE_MODULE_DIAGNOSTICS
 #include "diagnostics/diagnosticutils.h"
@@ -275,26 +278,27 @@ static T* findByIndex(const std::set<T*>& set, const INavigation::Index& idx)
 
 void NavigationController::init()
 {
-    dispatcher()->reg(this, "nav-next-section", [this]() { navigateTo(NavigationType::NextSection); });
-    dispatcher()->reg(this, "nav-prev-section", [this]() { navigateTo(NavigationType::PrevSection); });
-    dispatcher()->reg(this, "nav-next-panel", [this]() { navigateTo(NavigationType::NextPanel); });
-    dispatcher()->reg(this, "nav-prev-panel", [this]() { navigateTo(NavigationType::PrevPanel); });
-    //! NOTE Same as panel at the moment
-    dispatcher()->reg(this, "nav-next-tab", [this]() { navigateTo(NavigationType::NextPanel); });
-    dispatcher()->reg(this, "nav-prev-tab", [this]() { navigateTo(NavigationType::PrevPanel); });
+    auto d = dispatcher();
+    d->onRequest(this, ESCAPE_COMMAND, [this]() { onEscape(); return muse::make_ok(); });
 
-    dispatcher()->reg(this, "nav-trigger-control", [this]() { doTriggerControl(); });
+    d->onRequest(this, NEXT_SECTION_COMMAND, [this]() { navigateTo(NavigationType::NextSection); return muse::make_ok(); });
+    d->onRequest(this, PREV_SECTION_COMMAND, [this]() { navigateTo(NavigationType::PrevSection); return muse::make_ok(); });
+    d->onRequest(this, NEXT_PANEL_COMMAND, [this]() { navigateTo(NavigationType::NextPanel); return muse::make_ok(); });
+    d->onRequest(this, PREV_PANEL_COMMAND, [this]() { navigateTo(NavigationType::PrevPanel); return muse::make_ok(); });
+    d->onRequest(this, NEXT_TAB_COMMAND, [this]() { navigateTo(NavigationType::NextPanel); return muse::make_ok(); });
+    d->onRequest(this, PREV_TAB_COMMAND, [this]() { navigateTo(NavigationType::PrevPanel); return muse::make_ok(); });
 
-    dispatcher()->reg(this, "nav-right", [this]() { navigateTo(NavigationType::Right); });
-    dispatcher()->reg(this, "nav-left", [this]() { navigateTo(NavigationType::Left); });
-    dispatcher()->reg(this, "nav-up", [this]() { navigateTo(NavigationType::Up); });
-    dispatcher()->reg(this, "nav-down", [this]() { navigateTo(NavigationType::Down); });
-    dispatcher()->reg(this, "nav-escape", [this]() { onEscape(); });
+    d->onRequest(this, RIGHT_COMMAND, [this]() { navigateTo(NavigationType::Right); return muse::make_ok(); });
+    d->onRequest(this, LEFT_COMMAND, [this]() { navigateTo(NavigationType::Left); return muse::make_ok(); });
+    d->onRequest(this, UP_COMMAND, [this]() { navigateTo(NavigationType::Up); return muse::make_ok(); });
+    d->onRequest(this, DOWN_COMMAND, [this]() { navigateTo(NavigationType::Down); return muse::make_ok(); });
 
-    dispatcher()->reg(this, "nav-first-control", [this]() { navigateTo(NavigationType::FirstControl); });         // typically Home key
-    dispatcher()->reg(this, "nav-last-control", [this]() { navigateTo(NavigationType::LastControl); });           // typically End key
-    dispatcher()->reg(this, "nav-nextrow-control", [this]() { navigateTo(NavigationType::NextRowControl); });     // typically PageDown key
-    dispatcher()->reg(this, "nav-prevrow-control", [this]() { navigateTo(NavigationType::PrevRowControl); });     // typically PageUp key
+    d->onRequest(this, FIRST_CONTROL_COMMAND, [this]() { navigateTo(NavigationType::FirstControl); return muse::make_ok(); });
+    d->onRequest(this, LAST_CONTROL_COMMAND, [this]() { navigateTo(NavigationType::LastControl); return muse::make_ok(); });
+    d->onRequest(this, NEXTROW_CONTROL_COMMAND, [this]() { navigateTo(NavigationType::NextRowControl); return muse::make_ok(); });
+    d->onRequest(this, PREVROW_CONTROL_COMMAND, [this]() { navigateTo(NavigationType::PrevRowControl); return muse::make_ok(); });
+
+    d->onRequest(this, TRIGGER_CONTROL_COMMAND, [this]() { doTriggerControl(); return muse::make_ok(); });
 
     qApp->installEventFilter(this);
 }

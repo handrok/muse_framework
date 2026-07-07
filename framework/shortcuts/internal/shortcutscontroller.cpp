@@ -23,6 +23,14 @@
 
 #include "log.h"
 
+#define SHORTCUTS_DEBUG 1
+
+#if SHORTCUTS_DEBUG
+#define SC_LOG() LOGDA() << "[SC] "
+#else
+#define SC_LOG() LOGN()
+#endif
+
 using namespace muse::shortcuts;
 using namespace muse::actions;
 using namespace muse::rcommand;
@@ -42,23 +50,36 @@ void ShortcutsController::activate(const std::string& sequence)
     //! NOTE: command shortcuts first
     bool commandShortcutsProcessed = false;
     {
+        ShortcutList allowedShortcuts;
         const ShortcutList& commandShortcuts = commandShortcutsRegister()->shortcutsForSequence(sequence);
-        if (!commandShortcuts.empty()) {
-            for (const Shortcut& sc : commandShortcuts) {
-                const Command& command = Command(sc.command);
-                if (commandsState()->commandState(command).enabled) {
-                    //! TODO Add a check to the active panel
-                    commandDispatcher()->dispatch(command);
-                    commandShortcutsProcessed = true;
-                    break;
-                }
+        SC_LOG() << "commandShortcuts: " << commandShortcuts.size();
+        for (const Shortcut& sc : commandShortcuts) {
+            const Command& command = Command(sc.command);
+            if (commandsState()->commandState(command).enabled) {
+                allowedShortcuts.push_back(sc);
             }
+        }
+        SC_LOG() << "allowedShortcuts: " << allowedShortcuts.size();
+
+        Shortcut selectedShortcut;
+        if (allowedShortcuts.size() == 1) {
+            selectedShortcut = allowedShortcuts.front();
+        } else if (allowedShortcuts.size() > 1) {
+            if (shortcutsResolver()) {
+                selectedShortcut = shortcutsResolver()->selectOne(allowedShortcuts);
+            } else {
+                selectedShortcut = allowedShortcuts.front();
+            }
+        }
+        SC_LOG() << "selectedShortcut: " << selectedShortcut.command;
+        if (selectedShortcut.isValid()) {
+            commandDispatcher()->dispatch(Command(selectedShortcut.command));
+            commandShortcutsProcessed = true;
         }
     }
 
     if (!commandShortcutsProcessed) {
         ActionCode actionCode = resolveAction(sequence);
-
         if (!actionCode.empty()) {
             dispatcher()->dispatch(actionCode);
         }

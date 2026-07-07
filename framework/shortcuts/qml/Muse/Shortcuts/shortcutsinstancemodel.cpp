@@ -60,7 +60,10 @@ void ShortcutsInstanceModel::doLoadShortcuts()
 {
     m_shortcuts.clear();
 
-    const ShortcutList& shortcuts = shortcutsRegister()->shortcuts();
+    const ShortcutList& commandShortcuts = commandShortcutsRegister()->shortcuts();
+    ShortcutList shortcuts = commandShortcuts;
+    shortcuts.insert(shortcuts.end(), shortcutsRegister()->shortcuts().begin(), shortcutsRegister()->shortcuts().end());
+
     for (const Shortcut& sc : shortcuts) {
         for (const std::string& seq : sc.sequences) {
             QString seqStr = QString::fromStdString(seq);
@@ -78,6 +81,8 @@ void ShortcutsInstanceModel::doLoadShortcuts()
             }
         }
     }
+
+    LOGD() << "shortcuts: " << m_shortcuts.size();
 
     emit shortcutsChanged();
 }

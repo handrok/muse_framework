@@ -55,7 +55,7 @@ struct Shortcut
 
     bool isValid() const
     {
-        return !action.empty();
+        return !action.empty() || !command.empty();
     }
 
     bool operator ==(const Shortcut& sc) const
