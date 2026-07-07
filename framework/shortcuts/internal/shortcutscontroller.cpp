@@ -110,7 +110,8 @@ static bool defaultHasLowerPriorityThan(const std::string& ctx1, const std::stri
 ActionCode ShortcutsController::resolveAction(const std::string& sequence) const
 {
     ShortcutList shortcutsForSequence = shortcutsRegister()->shortcutsForSequence(sequence);
-    IF_ASSERT_FAILED(!shortcutsForSequence.empty()) {
+    if (shortcutsForSequence.empty()) {
+        LOGD() << "No shortcuts found for sequence: " << sequence;
         return ActionCode();
     }
 
