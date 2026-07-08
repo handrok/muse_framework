@@ -348,20 +348,25 @@ char32_t FontFaceFT::findCharCode(glyph_idx_t idx) const
 FBBox FontFaceFT::glyphBbox(glyph_idx_t idx) const
 {
     if (isSymbolMode()) {
-        SymbolMetrics* sm = symbolMetrics(idx);
-        IF_ASSERT_FAILED(sm) {
+        FT_UInt index = static_cast<FT_UInt>(idx);
+        if (index == 0) {
             return FBBox();
         }
-        //! NOTE Moved form MSS FontEngineFT::bbox
-        //! double m = 640.0 / dpi_f;
-        //! -> to FBBox (f26dot6_t) double m = (640.0 / dpi_f) * (1 / 64);
-        //! -> double m = 10.0 / dpi_f;
-        //! -> dpi_f = 5.0 constant
-        //! -> int m = 2;
-        int m = 2;
+
+        if (FT_Load_Glyph(m_data->face, index, FT_LOAD_NO_BITMAP) != 0) {
+            return FBBox();
+        }
+
+        FT_GlyphSlot slot = m_data->face->glyph;
+        if (slot->format != FT_GLYPH_FORMAT_OUTLINE) {
+            return FBBox();
+        }
+
+        FT_BBox outlineBox;
+        FT_Outline_Get_BBox(&slot->outline, &outlineBox);
+
         FBBox bbox;
-        bbox.setCoords(sm->bbox.xMin / m, -sm->bbox.yMax / m,
-                       sm->bbox.xMax / m, -sm->bbox.yMin / m);
+        bbox.setCoords(outlineBox.xMin, -outlineBox.yMax, outlineBox.xMax, -outlineBox.yMin);
         return bbox;
     } else {
         GlyphMetrics* gm = glyphMetrics(idx);
@@ -485,7 +490,7 @@ GlyphMetrics* FontFaceFT::glyphMetrics(glyph_idx_t idx) const
         return nullptr;
     }
 
-    if (FT_Load_Glyph(m_data->face, index, FT_LOAD_DEFAULT) != 0) {
+    if (FT_Load_Glyph(m_data->face, index, FT_LOAD_DEFAULT | FT_LOAD_NO_BITMAP | FT_LOAD_NO_HINTING) != 0) {
         return nullptr;
     }
 
@@ -493,10 +498,23 @@ GlyphMetrics* FontFaceFT::glyphMetrics(glyph_idx_t idx) const
 
     GlyphMetrics& gm = m_data->glyphsMetrics[idx];
 
-    gm.bbox.setLeft(slot->metrics.horiBearingX);
-    gm.bbox.setTop(-slot->metrics.horiBearingY);
-    gm.bbox.setWidth(slot->metrics.width);
-    gm.bbox.setHeight(slot->metrics.height);
+    auto floorF26Dot6 = [](FT_Pos value) {
+        return value & -64;
+    };
+
+    auto ceilF26Dot6 = [](FT_Pos value) {
+        return (value + 63) & -64;
+    };
+
+    FT_Pos left = floorF26Dot6(slot->metrics.horiBearingX);
+    FT_Pos right = ceilF26Dot6(slot->metrics.horiBearingX + slot->metrics.width);
+    FT_Pos top = ceilF26Dot6(slot->metrics.horiBearingY);
+    FT_Pos bottom = floorF26Dot6(slot->metrics.horiBearingY - slot->metrics.height);
+
+    gm.bbox.setLeft(left);
+    gm.bbox.setTop(-top);
+    gm.bbox.setWidth(right - left);
+    gm.bbox.setHeight(top - bottom);
 
     gm.linearAdvance = slot->linearHoriAdvance >> 10;
 
@@ -514,7 +532,7 @@ SymbolMetrics* FontFaceFT::symbolMetrics(glyph_idx_t idx) const
         return nullptr;
     }
 
-    if (FT_Load_Glyph(m_data->face, index, FT_LOAD_DEFAULT) != 0) {
+    if (FT_Load_Glyph(m_data->face, index, FT_LOAD_DEFAULT | FT_LOAD_NO_BITMAP | FT_LOAD_NO_HINTING) != 0) {
         return nullptr;
     }
 
@@ -522,9 +540,11 @@ SymbolMetrics* FontFaceFT::symbolMetrics(glyph_idx_t idx) const
 
     sm.idx = static_cast<glyph_idx_t>(index);
 
-    if (FT_Outline_Get_BBox(&m_data->face->glyph->outline, &sm.bbox) != 0) {
-        return nullptr;
-    }
+    FT_GlyphSlot slot = m_data->face->glyph;
+    sm.bbox.xMin = slot->metrics.horiBearingX;
+    sm.bbox.xMax = slot->metrics.horiBearingX + slot->metrics.width;
+    sm.bbox.yMin = slot->metrics.horiBearingY - slot->metrics.height;
+    sm.bbox.yMax = slot->metrics.horiBearingY;
 
     //! NOTE Moved form MSS FontEngineFT::advance
     //! double advance = linearHoriAdvance * dpi_f / 655360.0;

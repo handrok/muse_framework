@@ -123,7 +123,7 @@ void FontsEngine::init()
 
 double FontsEngine::lineSpacing(const Font& f) const
 {
-    RequireFace* rf = fontFace(f);
+    RequireFace* rf = fontFace(f, f.type() == Font::Type::MusicSymbol);
     IF_ASSERT_FAILED(rf && rf->face) {
         return 0.0;
     }
@@ -241,7 +241,7 @@ double FontsEngine::horizontalAdvance(const Font& f, const std::u32string& text)
 
 RectF FontsEngine::boundingRect(const Font& f, const char32_t& ch) const
 {
-    RequireFace* rf = fontFace(f);
+    RequireFace* rf = fontFace(f, f.type() == Font::Type::MusicSymbol);
     IF_ASSERT_FAILED(rf && rf->face) {
         return RectF();
     }
