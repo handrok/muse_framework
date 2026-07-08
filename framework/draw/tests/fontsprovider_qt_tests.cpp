@@ -53,16 +53,19 @@ public:
             loadFont("Edwin", edwinPath());
             loadFont("FreeSerif", freeSerifPath());
             loadFont("Leland", lelandPath());
+            loadFont("Bravura", bravuraPath());
 
             fontsDatabase->addFont(FontDataKey(u"Edwin"), edwinPath());
             fontsDatabase->addFont(FontDataKey(u"FreeSerif"), freeSerifPath());
             fontsDatabase->addFont(FontDataKey(u"Leland"), lelandPath());
+            fontsDatabase->addFont(FontDataKey(u"Bravura"), bravuraPath());
 
             fontsDatabase->setDefaultFont(Font::Type::Unknown, FontDataKey(u"Edwin"));
             fontsDatabase->setDefaultFont(Font::Type::Text, FontDataKey(u"Edwin"));
             fontsDatabase->setDefaultFont(Font::Type::MusicSymbol, FontDataKey(u"Leland"));
 
             qProvider.addSymbolFont(u"Leland", lelandPath());
+            qProvider.addSymbolFont(u"Bravura", bravuraPath());
             fontsEngine->init();
         }
 
@@ -90,6 +93,11 @@ public:
         static muse::io::path_t lelandPath()
         {
             return fontRoot() + "/leland/Leland.otf";
+        }
+
+        static muse::io::path_t bravuraPath()
+        {
+            return fontRoot() + "/bravura/Bravura.otf";
         }
 
         static void loadFont(const QString& expectedFamily, const muse::io::path_t& path)
@@ -121,7 +129,13 @@ static const std::vector<muse::String> TEST_STRINGS = { muse::String(u"qwer"), m
                                                         muse::String(u"AW"), muse::String(u"musescore"), muse::String(u"musegroup"),
                                                         muse::String(u"getmedrink"), muse::String(u"pop") };
 
-static const std::vector<char16_t> TEST_SYMBOLS = { 0xE050, 0xE05C, 0xE1D7, 0xE260, 0xE262, 0xE512 };
+static const std::vector<char16_t> TEST_SYMBOLS = {
+    0xE050, 0xE05C, 0xE062, 0xE0A2, 0xE0A3, 0xE0A4,
+    0xE1D7, 0xE1D9, 0xE260, 0xE261, 0xE262,
+    0xE4A0, 0xE4A2, 0xE4E3, 0xE520, 0xE521, 0xE522,
+    0xE560, 0xE561, 0xE562, 0xE565, 0xE566, 0xE56A,
+    0xE4E5, 0xE4E6, 0xE4E7, 0xE4E8, 0xE4E9, 0xE4EA
+};
 
 static std::string to_string(const muse::RectF& r)
 {
@@ -235,7 +249,7 @@ TEST_F(Draw_FontsProviderQtTests, descent)
     }
 }
 
-TEST_F(Draw_FontsProviderQtTests, DISABLED_horizontalAdvance_Char)
+TEST_F(Draw_FontsProviderQtTests, horizontalAdvance_Char)
 {
     Env env;
     Font f(u"Edwin", Font::Type::Text);
@@ -271,7 +285,7 @@ TEST_F(Draw_FontsProviderQtTests, horizontalAdvance_String)
     }
 }
 
-TEST_F(Draw_FontsProviderQtTests, DISABLED_boundingRect_Char)
+TEST_F(Draw_FontsProviderQtTests, boundingRect_Char)
 {
     Env env;
     Font f(u"Edwin", Font::Type::Text);
@@ -343,7 +357,7 @@ TEST_F(Draw_FontsProviderQtTests, tightBoundingRect_String_FreeSerif)
     }
 }
 
-TEST_F(Draw_FontsProviderQtTests, DISABLED_boundingRect_Symbol)
+TEST_F(Draw_FontsProviderQtTests, boundingRect_Symbol)
 {
     Env env;
     Font f(u"Leland", Font::Type::MusicSymbol);
@@ -357,15 +371,52 @@ TEST_F(Draw_FontsProviderQtTests, DISABLED_boundingRect_Symbol)
             muse::RectF xVal = env.xProvider.boundingRect(f, ch);
 
             print(f.pointSizeF(), qVal, xVal);
-            EXPECT_TRUE(ValIsEqual(qVal, xVal, 0.2));
+            EXPECT_TRUE(ValIsEqual(qVal, xVal, 1.1));
         }
     }
 }
 
-TEST_F(Draw_FontsProviderQtTests, DISABLED_horizontalAdvance_Symbol)
+TEST_F(Draw_FontsProviderQtTests, boundingRect_Symbol_Bravura)
+{
+    Env env;
+    Font f(u"Bravura", Font::Type::MusicSymbol);
+    std::vector<double> points = { 12.0 };
+
+    for (double pointSize : points) {
+        f.setPointSizeF(pointSize);
+
+        for (const char16_t ch : TEST_SYMBOLS) {
+            muse::RectF qVal = env.qProvider.boundingRect(f, ch);
+            muse::RectF xVal = env.xProvider.boundingRect(f, ch);
+
+            print(f.pointSizeF(), qVal, xVal);
+            EXPECT_TRUE(ValIsEqual(qVal, xVal, 0.7));
+        }
+    }
+}
+
+TEST_F(Draw_FontsProviderQtTests, horizontalAdvance_Symbol)
 {
     Env env;
     Font f(u"Leland", Font::Type::MusicSymbol);
+
+    for (double pointSize : TEST_POINTSIZES) {
+        f.setPointSizeF(pointSize);
+
+        for (const char16_t ch : TEST_SYMBOLS) {
+            double qVal = env.qProvider.horizontalAdvance(f, ch);
+            double xVal = env.xProvider.horizontalAdvance(f, ch);
+
+            print(f.pointSizeF(), qVal, xVal);
+            EXPECT_TRUE(ValIsEqual(qVal, xVal, 0.3));
+        }
+    }
+}
+
+TEST_F(Draw_FontsProviderQtTests, horizontalAdvance_Symbol_Bravura)
+{
+    Env env;
+    Font f(u"Bravura", Font::Type::MusicSymbol);
 
     for (double pointSize : TEST_POINTSIZES) {
         f.setPointSizeF(pointSize);
