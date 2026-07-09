@@ -54,6 +54,7 @@ QVariant ShortcutsModel::data(const QModelIndex& index, int role) const
     switch (role) {
     case RoleTitle: return item.title;
     case RoleIcon: return item.icon;
+    case RoleIconColor: return item.iconColor;
     case RoleSequence: return item.sequence;
     case RoleSearchKey: return item.searchKey + item.sequence;
     }
@@ -87,6 +88,7 @@ QHash<int, QByteArray> ShortcutsModel::roleNames() const
     static const QHash<int, QByteArray> roles {
         { RoleTitle, "title" },
         { RoleIcon, "icon" },
+        { RoleIconColor, "iconColor" },
         { RoleSequence, "sequence" },
         { RoleSearchKey, "searchKey" }
     };
@@ -156,6 +158,7 @@ void ShortcutsModel::load()
             item.shortcut = shortcut;
             item.title = actionText(action.code);
             item.icon = static_cast<int>(action.iconCode);
+            item.iconColor = action.iconColor;
             item.sequence = sequencesToNativeText(shortcut.sequences);
             item.searchKey = QString::fromStdString(action.code)
                              + action.title.qTranslatedWithoutMnemonic()

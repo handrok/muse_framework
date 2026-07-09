@@ -37,6 +37,7 @@ ListItemBlank {
     property string minValueRoleName: "min"
     property string maxValueRoleName: "max"
     property string iconRoleName: "icon"
+    property string iconColorRoleName: "iconColor"
 
     property bool readOnly: false
     //! NOTE: is keys column generally editable
@@ -120,6 +121,7 @@ ListItemBlank {
             StyledIconLabel {
                 id: icon
                 iconCode: Boolean(root.item[iconRoleName]) ? root.item[iconRoleName] : IconCode.NONE
+                color: Boolean(root.item[iconColorRoleName]) ? root.item[iconColorRoleName] : ui.theme.fontPrimaryColor
             }
 
             Loader {
