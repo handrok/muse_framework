@@ -97,6 +97,7 @@ private:
     enum Roles {
         RoleTitle = Qt::UserRole + 1,
         RoleIcon,
+        RoleIconColor,
         RoleSequence,
         RoleSearchKey
     };
@@ -106,6 +107,7 @@ private:
         QString group;
         QString title;
         int icon = 0;
+        QString iconColor;
         QString sequence;
         QString searchKey;
     };
