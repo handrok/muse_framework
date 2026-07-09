@@ -42,7 +42,7 @@ static constexpr std::string_view MAPPING_ACTION_CODE_TAG("key");
 static constexpr std::string_view MAPPING_EVENT_TYPE_TAG("EventType");
 static constexpr std::string_view MAPPING_EVENT_VALUE_TAG("EventValue");
 
-static const std::string REALTIME_ADVANCE_ACTION_NAME("realtime-advance");
+static const std::string REALTIME_ADVANCE_ACTION_NAME("command://notation/realtime-advance");
 
 static const std::string MIDI_MAPPING_RESOURCE_NAME("MIDI_MAPPING");
 

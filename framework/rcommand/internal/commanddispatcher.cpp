@@ -49,6 +49,7 @@ async::Promise<Response> CommandDispatcher::dispatch(const Request& request)
             Response response = it->second.callback(request);
             return resolve(response);
         } else {
+            LOGW() << "command not registered: " << request.query.toString();
             return resolve(make_response(request, make_ret(Ret::Code::UnknownError)));
         }
     });
