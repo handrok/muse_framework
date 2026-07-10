@@ -5,6 +5,7 @@ if (MUSE_MODULE_VST)
 endif()
 
 if (MUSE_MODULE_DRAW)
+    require_dep(libpng)
     require_dep(freetype)
     require_dep(harfbuzz)
 endif()
