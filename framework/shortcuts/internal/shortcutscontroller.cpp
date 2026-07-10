@@ -21,6 +21,7 @@
  */
 #include "shortcutscontroller.h"
 
+#include "actions/actiontypes.h"
 #include "log.h"
 
 #define SHORTCUTS_DEBUG 1
@@ -34,6 +35,7 @@
 using namespace muse::shortcuts;
 using namespace muse::actions;
 using namespace muse::rcommand;
+using namespace muse::ui;
 
 void ShortcutsController::init()
 {

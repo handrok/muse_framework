@@ -33,7 +33,7 @@
 #include "ui/uitypes.h"
 
 namespace muse::rcommand {
-constexpr std::string_view COMMAND_SCHEME = "command://";
+constexpr std::string_view COMMAND_SCHEME = "command";
 using Command = Uri;
 using CommandQuery = UriQuery;
 

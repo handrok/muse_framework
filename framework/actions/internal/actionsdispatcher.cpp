@@ -78,7 +78,7 @@ void ActionsDispatcher::dispatch(const ActionCode& actionCode, const ActionData&
 
 void ActionsDispatcher::dispatch(const ActionQuery& actionQuery)
 {
-    if (actionQuery.uri().scheme() == rcommand::COMMAND_SCHEME) {
+    if (muse::strings::startsWith(actionQuery.uri().scheme(), rcommand::COMMAND_SCHEME)) {
         commandDispatcher()->dispatch(actionQuery);
         return;
     }
