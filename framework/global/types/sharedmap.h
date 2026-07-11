@@ -135,6 +135,12 @@ public:
         return m_dataPtr->find(key);
     }
 
+    iterator find(const KeyType& key) noexcept
+    {
+        ensureDetach();
+        return m_dataPtr->find(key);
+    }
+
     iterator lower_bound(const KeyType& key)
     {
         ensureDetach();
@@ -184,6 +190,31 @@ public:
         m_dataPtr->insert(std::forward<PairType>(pair));
     }
 
+    void insert(const_iterator first, const_iterator last)
+    {
+        ensureDetach();
+        m_dataPtr->insert(first, last);
+    }
+
+    iterator insert(const_iterator hint, const PairType& pair)
+    {
+        ensureDetach();
+        return m_dataPtr->insert(hint, pair);
+    }
+
+    iterator insert(const_iterator hint, PairType&& pair)
+    {
+        ensureDetach();
+        return m_dataPtr->insert(hint, std::forward<PairType>(pair));
+    }
+
+    void merge(SharedMap& source)
+    {
+        ensureDetach();
+        source.ensureDetach();
+        m_dataPtr->merge(*source.m_dataPtr);
+    }
+
     void insert_or_assign(const KeyType& key, ValType&& val)
     {
         ensureDetach();
@@ -203,6 +234,20 @@ public:
         m_dataPtr->emplace(std::forward<Args>(args)...);
     }
 
+    template<typename ... Args>
+    iterator emplace_hint(const_iterator hint, Args&& ... args)
+    {
+        ensureDetach();
+        return m_dataPtr->emplace_hint(hint, std::forward<Args>(args)...);
+    }
+
+    template<typename ... Args>
+    std::pair<iterator, bool> try_emplace(const KeyType& key, Args&& ... args)
+    {
+        ensureDetach();
+        return m_dataPtr->try_emplace(key, std::forward<Args>(args)...);
+    }
+
     void clear() noexcept
     {
         ensureDetach();
@@ -215,6 +260,12 @@ public:
         m_dataPtr->erase(key);
     }
 
+    iterator erase(const_iterator pos)
+    {
+        ensureDetach();
+        return m_dataPtr->erase(pos);
+    }
+
     void erase(iterator first, iterator last)
     {
         ensureDetach();
@@ -223,6 +274,10 @@ public:
 
     bool operator ==(const SharedMap& another) const noexcept
     {
+        if (m_dataPtr == another.m_dataPtr) {
+            return true;
+        }
+
         return *m_dataPtr == *another.m_dataPtr;
     }
 
@@ -233,12 +288,20 @@ public:
 
     bool operator <(const SharedMap& another) const noexcept
     {
-        return m_dataPtr->operator <(another.m_dataPtr);
+        if (m_dataPtr == another.m_dataPtr) {
+            return false;
+        }
+
+        return *m_dataPtr < *another.m_dataPtr;
     }
 
     bool operator >(const SharedMap& another) const noexcept
     {
-        return m_dataPtr->operator >(another.m_dataPtr);
+        if (m_dataPtr == another.m_dataPtr) {
+            return false;
+        }
+
+        return *m_dataPtr > *another.m_dataPtr;
     }
 
 private:
