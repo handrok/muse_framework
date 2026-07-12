@@ -130,7 +130,7 @@ elseif(OS_IS_WIN)
     )
 
     # Exclude from Unity Build to avoid Error C2872: 'Uri': ambiguous symbol
-    # and avoid error with IconCode::ERROR 
+    # and avoid error with IconCode::ERROR
     set_source_files_properties(
         ${CMAKE_CURRENT_LIST_DIR}/internal/platform/windows/windowsplatformtheme.cpp
         ${CMAKE_CURRENT_LIST_DIR}/internal/platform/windows/winwindowscontroller.cpp
@@ -163,7 +163,8 @@ if (MUSE_LOAD_QML_FROM_SOURCE)
 endif()
 
 if (MUSE_QT_SUPPORT)
-    target_link_libraries(muse_ui PRIVATE Qt::Quick Qt::Widgets)
+    target_link_libraries(muse_ui PUBLIC Qt::Quick)
+    target_link_libraries(muse_ui PRIVATE Qt::Widgets)
 
     if (OS_IS_LIN)
         target_link_libraries(muse_ui PRIVATE Qt::DBus)
