@@ -261,7 +261,6 @@ public:
     ThemeApi(IApiEngine* e);
 
     void init();
-    void update();
 
     bool isDark() const;
 
@@ -317,6 +316,7 @@ signals:
     void themeChanged();
 
 private:
+    void update();
 
     void initThemeValues();
 
