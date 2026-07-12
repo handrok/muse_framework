@@ -95,12 +95,14 @@ target_sources(muse_ui PRIVATE
     view/qmltooltip.h
     view/qmltranslation.cpp
     view/qmltranslation.h
+    view/widgetdialog.h
     view/widgetnavigationfix.cpp
     view/widgetnavigationfix.h
     view/widgetstatestore.cpp
     view/widgetstatestore.h
+    view/widgetstyle.cpp
+    view/widgetstyle.h
     view/widgetutils.h
-    view/widgetdialog.h
 )
 
 if (OS_IS_MAC)

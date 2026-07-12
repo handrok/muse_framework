@@ -39,6 +39,7 @@
 #include "internal/navigationcontroller.h"
 #include "internal/dragcontroller.h"
 #include "view/iconcodes.h"
+#include "view/widgetstyle.h"
 
 #ifdef Q_OS_MAC
 #include "internal/platform/macos/macosplatformtheme.h"
@@ -77,10 +78,7 @@ void UiModule::registerExports()
 {
     m_configuration = std::make_shared<UiConfiguration>();
 
-    //! NOTE At the moment, UiTheme is also QProxyStyle
-    //! Inside the theme, QApplication::setStyle(this) is calling and the QStyleSheetStyle becomes as parent.
-    //! So, the UiTheme will be deleted when will deleted the application (as a child of QStyleSheetStyle).
-    m_theme = new api::ThemeApi(nullptr);
+    m_theme = std::make_shared<api::ThemeApi>(nullptr);
 
     #ifdef Q_OS_MAC
     m_platformTheme = std::make_shared<MacOSPlatformTheme>();
@@ -112,7 +110,7 @@ void UiModule::registerApi()
     if (api) {
         api->regApiCreator(moduleName(), "MuseInternal.Navigation", new ApiCreator<muse::api::NavigationApi>());
         api->regApiCreator(moduleName(), "MuseInternal.Keyboard", new ApiCreator<muse::api::KeyboardApi>());
-        api->regApiSingltone(moduleName(), "MuseApi.Theme", m_theme);
+        api->regApiSingltone(moduleName(), "MuseApi.Theme", m_theme.get());
 
         qmlRegisterUncreatableMetaObject(IconCode::staticMetaObject, "MuseApi.Controls", 1, 0, "IconCode",
                                          "Not creatable as it is an enum type");
@@ -142,6 +140,9 @@ void UiModule::onAllInited(const IApplication::RunMode& mode)
     }
 
     m_theme->init();
+
+    m_widgetStyle = new WidgetStyle(m_theme); // becomes owned by QApplication
+    m_widgetStyle->init();
 }
 
 void UiModule::onDeinit()
