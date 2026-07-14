@@ -28,6 +28,7 @@
 
 #include "ui/internal/navigationcontroller.h"
 #include "rcommand/internal/commanddispatcher.h"
+#include "actions/internal/actionsdispatcher.h"
 #include "ui/navigationcommands.h"
 
 #include "global/tests/mocks/applicationmock.h"
@@ -54,7 +55,9 @@ public:
         m_controller = std::make_shared<NavigationController>(nullptr);
 
         m_dispatcher = std::make_shared<rcommand::CommandDispatcher>();
+        m_actionsDispatcher = std::make_shared<actions::ActionsDispatcher>(iocCtx);
         m_controller->dispatcher.set(m_dispatcher);
+        m_controller->actionsDispatcher.set(m_actionsDispatcher);
 
         m_mainWindow = std::make_shared<ui::MainWindowMock>();
         ON_CALL(*m_mainWindow, qWindow()).WillByDefault(Return(&m_window));
@@ -294,6 +297,7 @@ public:
 
     std::shared_ptr<NavigationController> m_controller;
     std::shared_ptr<rcommand::CommandDispatcher> m_dispatcher;
+    std::shared_ptr<actions::ActionsDispatcher> m_actionsDispatcher;
     std::shared_ptr<MainWindowMock> m_mainWindow;
     std::shared_ptr<muse::ApplicationMock> m_applicationMock;
 

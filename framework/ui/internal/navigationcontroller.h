@@ -28,6 +28,8 @@
 #include "modularity/ioc.h"
 #include "rcommand/commandable.h"
 #include "rcommand/icommanddispatcher.h"
+#include "actions/actionable.h"
+#include "actions/iactionsdispatcher.h"
 #include "async/asyncable.h"
 #include "ui/imainwindow.h"
 #include "interactive/iinteractive.h"
@@ -36,10 +38,11 @@
 
 namespace muse::ui {
 class NavigationController : public QObject, public INavigationController, public Contextable, public async::Asyncable,
-    public rcommand::Commandable
+    public rcommand::Commandable, public actions::Actionable
 {
 public:
     ContextInject<rcommand::ICommandDispatcher> dispatcher = { this };
+    ContextInject<actions::IActionsDispatcher> actionsDispatcher = { this };
     ContextInject<IInteractive> interactive = { this };
     ContextInject<IMainWindow> mainWindow = { this };
 
