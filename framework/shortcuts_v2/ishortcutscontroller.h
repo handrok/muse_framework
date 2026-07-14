@@ -19,25 +19,25 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#ifndef MUSE_SHORTCUTS_ISHORTCUTSCONTROLLER_H
+#define MUSE_SHORTCUTS_ISHORTCUTSCONTROLLER_H
 
-#pragma once
+#include <string>
 
 #include "modularity/imoduleinterface.h"
-#include "io/path.h"
-#include "types/retval.h"
+#include "shortcutstypes.h"
 
 namespace muse::shortcuts {
-class IShortcutsConfiguration : MODULE_GLOBAL_INTERFACE
+class IShortcutsController : MODULE_CONTEXT_INTERFACE
 {
-    INTERFACE_ID(IShortcutsConfiguration)
+    INTERFACE_ID(IShortcutsController)
 
 public:
-    virtual ~IShortcutsConfiguration() = default;
+    virtual ~IShortcutsController() = default;
 
-    virtual QString currentKeyboardLayout() const = 0;
-    virtual void setCurrentKeyboardLayout(const QString& layout) = 0;
-
-    virtual io::path_t shortcutsUserAppDataPath() const = 0;
-    virtual io::path_t shortcutsAppDataPath() const = 0;
+    virtual void activate(const std::string& sequence) = 0;
+    virtual bool isRegistered(const std::string& sequence) const = 0;
 };
 }
+
+#endif // MUSE_SHORTCUTS_ISHORTCUTSCONTROLLER_H

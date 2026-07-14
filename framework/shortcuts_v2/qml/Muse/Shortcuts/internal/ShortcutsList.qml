@@ -33,6 +33,7 @@ ValueList {
     valueRoleName: "sequence"
     valueTitle: qsTrc("shortcuts", "shortcut")
     iconRoleName: "icon"
+    iconColorRoleName: "iconColor"
     readOnly: true
 
     property var sourceModel: null

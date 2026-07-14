@@ -19,25 +19,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include "shortcutsapi.h"
 
-#pragma once
+#include "log.h"
 
-#include "modularity/imoduleinterface.h"
-#include "io/path.h"
-#include "types/retval.h"
+using namespace muse::api;
 
-namespace muse::shortcuts {
-class IShortcutsConfiguration : MODULE_GLOBAL_INTERFACE
+ShortcutsApi::ShortcutsApi(api::IApiEngine* e)
+    : api::ApiObject(e)
 {
-    INTERFACE_ID(IShortcutsConfiguration)
+}
 
-public:
-    virtual ~IShortcutsConfiguration() = default;
-
-    virtual QString currentKeyboardLayout() const = 0;
-    virtual void setCurrentKeyboardLayout(const QString& layout) = 0;
-
-    virtual io::path_t shortcutsUserAppDataPath() const = 0;
-    virtual io::path_t shortcutsAppDataPath() const = 0;
-};
+void ShortcutsApi::activate(const QString& sequence)
+{
+    TRACEFUNC;
+    shortcutsController()->activate(sequence.toStdString());
 }

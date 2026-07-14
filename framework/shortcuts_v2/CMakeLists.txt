@@ -28,14 +28,18 @@ target_sources(muse_shortcuts PRIVATE
     shortcutstypes.h
     shortcutcontext.h
     ishortcutsregister.h
+    icommandshortcutsregister.h
     ishortcutscontroller.h
     ishortcutsconfiguration.h
+    ishortcutsresolver.h
 
     api/shortcutsapi.cpp
     api/shortcutsapi.h
 
     internal/shortcutsregister.cpp
     internal/shortcutsregister.h
+    internal/commandshortcutsregister.cpp
+    internal/commandshortcutsregister.h
     internal/shortcutscontroller.cpp
     internal/shortcutscontroller.h
     internal/shortcutsconfiguration.cpp

@@ -110,7 +110,11 @@ if (MUSE_MODULE_RCONTROL)
 endif()
 
 if (MUSE_MODULE_SHORTCUTS)
-    add_subdirectory(shortcuts)
+    if (MUSE_MODULE_SHORTCUTS_V2)
+        add_subdirectory(shortcuts_v2)
+    else()
+        add_subdirectory(shortcuts)
+    endif()
 endif()
 
 if (MUSE_MODULE_TOURS)

@@ -21,10 +21,21 @@
  */
 #include "shortcutscontroller.h"
 
+#include "actions/actiontypes.h"
 #include "log.h"
+
+#define SHORTCUTS_DEBUG 1
+
+#if SHORTCUTS_DEBUG
+#define SC_LOG() LOGDA() << "[SC] "
+#else
+#define SC_LOG() LOGN()
+#endif
 
 using namespace muse::shortcuts;
 using namespace muse::actions;
+using namespace muse::rcommand;
+using namespace muse::ui;
 
 void ShortcutsController::init()
 {
@@ -38,10 +49,42 @@ void ShortcutsController::activate(const std::string& sequence)
 {
     LOGD() << sequence;
 
-    ActionCode actionCode = resolveAction(sequence);
+    //! NOTE: command shortcuts first
+    bool commandShortcutsProcessed = false;
+    {
+        ShortcutList allowedShortcuts;
+        const ShortcutList& commandShortcuts = commandShortcutsRegister()->shortcutsForSequence(sequence);
+        SC_LOG() << "commandShortcuts: " << commandShortcuts.size();
+        for (const Shortcut& sc : commandShortcuts) {
+            const Command& command = Command(sc.command);
+            if (commandsState()->commandState(command).enabled) {
+                allowedShortcuts.push_back(sc);
+            }
+        }
+        SC_LOG() << "allowedShortcuts: " << allowedShortcuts.size();
 
-    if (!actionCode.empty()) {
-        dispatcher()->dispatch(actionCode);
+        Shortcut selectedShortcut;
+        if (allowedShortcuts.size() == 1) {
+            selectedShortcut = allowedShortcuts.front();
+        } else if (allowedShortcuts.size() > 1) {
+            if (shortcutsResolver()) {
+                selectedShortcut = shortcutsResolver()->selectOne(allowedShortcuts);
+            } else {
+                selectedShortcut = allowedShortcuts.front();
+            }
+        }
+        SC_LOG() << "selectedShortcut: " << selectedShortcut.command;
+        if (selectedShortcut.isValid()) {
+            commandDispatcher()->dispatch(Command(selectedShortcut.command));
+            commandShortcutsProcessed = true;
+        }
+    }
+
+    if (!commandShortcutsProcessed) {
+        ActionCode actionCode = resolveAction(sequence);
+        if (!actionCode.empty()) {
+            dispatcher()->dispatch(actionCode);
+        }
     }
 }
 
@@ -69,7 +112,8 @@ static bool defaultHasLowerPriorityThan(const std::string& ctx1, const std::stri
 ActionCode ShortcutsController::resolveAction(const std::string& sequence) const
 {
     ShortcutList shortcutsForSequence = shortcutsRegister()->shortcutsForSequence(sequence);
-    IF_ASSERT_FAILED(!shortcutsForSequence.empty()) {
+    if (shortcutsForSequence.empty()) {
+        LOGD() << "No shortcuts found for sequence: " << sequence;
         return ActionCode();
     }
 

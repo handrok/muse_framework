@@ -22,22 +22,25 @@
 
 #pragma once
 
-#include "modularity/imoduleinterface.h"
-#include "io/path.h"
-#include "types/retval.h"
+#include <QObject>
+#include <qqmlintegration.h>
+
+#include "../../shortcutsinstancemodel.h"
 
 namespace muse::shortcuts {
-class IShortcutsConfiguration : MODULE_GLOBAL_INTERFACE
+class MacOSShortcutsInstanceModel : public ShortcutsInstanceModel
 {
-    INTERFACE_ID(IShortcutsConfiguration)
+    Q_OBJECT
+
+    QML_NAMED_ELEMENT(ShortcutsInstanceModel)
 
 public:
-    virtual ~IShortcutsConfiguration() = default;
+    explicit MacOSShortcutsInstanceModel(QObject* parent = nullptr);
 
-    virtual QString currentKeyboardLayout() const = 0;
-    virtual void setCurrentKeyboardLayout(const QString& layout) = 0;
+private:
+    void doLoadShortcuts() override;
+    void doActivate(const QString& seq) override;
 
-    virtual io::path_t shortcutsUserAppDataPath() const = 0;
-    virtual io::path_t shortcutsAppDataPath() const = 0;
+    QHash<QString, QString> m_macSequenceMap;
 };
 }

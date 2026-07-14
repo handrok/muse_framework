@@ -28,14 +28,17 @@
 #include "global/io/file.h"
 #include "global/serialization/xmlstreamreader.h"
 #include "global/serialization/xmlstreamwriter.h"
+#include "global/containers.h"
 
 #include "multiwindows/resourcelockguard.h"
+#include "ui/navigationcommands.h"
 
 #include "log.h"
 
 using namespace muse;
 using namespace muse::shortcuts;
 using namespace muse::async;
+using namespace muse::ui;
 
 static constexpr std::string_view SHORTCUTS_TAG("Shortcuts");
 static constexpr std::string_view SHORTCUT_TAG("SC");
@@ -45,6 +48,25 @@ static constexpr std::string_view SEQUENCE_TAG("seq");
 static constexpr std::string_view AUTOREPEAT_TAG("autorepeat");
 
 static const std::string SHORTCUTS_RESOURCE_NAME("SHORTCUTS");
+
+static const std::map<std::string, rcommand::Command> compatActionToCommand = {
+    { "nav-next-section", NEXT_SECTION_COMMAND },
+    { "nav-prev-section", PREV_SECTION_COMMAND },
+    { "nav-next-panel", NEXT_PANEL_COMMAND },
+    { "nav-prev-panel", PREV_PANEL_COMMAND },
+    { "nav-next-tab", NEXT_PANEL_COMMAND },
+    { "nav-prev-tab", PREV_PANEL_COMMAND },
+    { "nav-trigger-control", TRIGGER_CONTROL_COMMAND },
+    { "nav-right", RIGHT_COMMAND },
+    { "nav-left", LEFT_COMMAND },
+    { "nav-up", UP_COMMAND },
+    { "nav-down", DOWN_COMMAND },
+    { "nav-escape", ESCAPE_COMMAND },
+    { "nav-first-control", FIRST_CONTROL_COMMAND },
+    { "nav-last-control", LAST_CONTROL_COMMAND },
+    { "nav-nextrow-control", NEXTROW_CONTROL_COMMAND },
+    { "nav-prevrow-control", PREVROW_CONTROL_COMMAND },
+};
 
 static const std::map<QKeySequence::StandardKey, QKeyCombination> SHORTCUTS_EXPAND_IGNORE_MAP = {
     { QKeySequence::StandardKey::HelpContents, Qt::Key_Help },
@@ -324,6 +346,10 @@ Shortcut ShortcutsRegister::readShortcut(XmlStreamReader& reader) const
 
         if (tag == ACTION_CODE_TAG) {
             shortcut.action = reader.readAsciiText();
+            const rcommand::Command& command = muse::value(compatActionToCommand, shortcut.action);
+            if (command.isValid()) {
+                shortcut.action = command.toString();
+            }
         } else if (tag == STANDARD_KEY_TAG) {
             shortcut.standardKey = QKeySequence::StandardKey(reader.readInt());
         } else if (tag == SEQUENCE_TAG) {
