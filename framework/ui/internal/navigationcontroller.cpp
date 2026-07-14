@@ -49,6 +49,7 @@
 #define MYLOG() LOGN()
 #endif
 
+using namespace muse;
 using namespace muse::ui;
 
 static const muse::UriQuery DEV_SHOW_CONTROLS_URI("muse://devtools/keynav/controls?modal=false");
@@ -299,6 +300,33 @@ void NavigationController::init()
     d->onRequest(this, PREVROW_CONTROL_COMMAND, [this]() { navigateTo(NavigationType::PrevRowControl); return muse::make_ok(); });
 
     d->onRequest(this, TRIGGER_CONTROL_COMMAND, [this]() { doTriggerControl(); return muse::make_ok(); });
+
+    // compat
+    {
+        static const std::map<std::string, rcommand::Command> compatActionToCommand = {
+            { "nav-next-section", NEXT_SECTION_COMMAND },
+            { "nav-prev-section", PREV_SECTION_COMMAND },
+            { "nav-next-panel", NEXT_PANEL_COMMAND },
+            { "nav-prev-panel", PREV_PANEL_COMMAND },
+            { "nav-next-tab", NEXT_PANEL_COMMAND },
+            { "nav-prev-tab", PREV_PANEL_COMMAND },
+            { "nav-trigger-control", TRIGGER_CONTROL_COMMAND },
+            { "nav-right", RIGHT_COMMAND },
+            { "nav-left", LEFT_COMMAND },
+            { "nav-up", UP_COMMAND },
+            { "nav-down", DOWN_COMMAND },
+            { "nav-escape", ESCAPE_COMMAND },
+            { "nav-first-control", FIRST_CONTROL_COMMAND },
+            { "nav-last-control", LAST_CONTROL_COMMAND },
+            { "nav-nextrow-control", NEXTROW_CONTROL_COMMAND },
+            { "nav-prevrow-control", PREVROW_CONTROL_COMMAND },
+        };
+
+        auto ad = actionsDispatcher();
+        for (const auto& [action, command] : compatActionToCommand) {
+            ad->reg(this, action, [d, command]() { d->dispatch(command); });
+        }
+    }
 
     qApp->installEventFilter(this);
 }
