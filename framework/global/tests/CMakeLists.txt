@@ -57,6 +57,8 @@ set(MODULE_TEST_SRC
     ${CMAKE_CURRENT_LIST_DIR}/ringqueue_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rpcqueue_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/geometry_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/sharedmap_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/sharedhashmap_tests.cpp
 )
 
 include(SetupGTest)
