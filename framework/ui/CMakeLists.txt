@@ -72,6 +72,8 @@ target_sources(muse_ui PRIVATE
     internal/navigationcommandsstate.h
     internal/navigationcontroller.cpp
     internal/navigationcontroller.h
+    internal/navigationuiactions.cpp
+    internal/navigationuiactions.h
     internal/uiarrangement.cpp
     internal/uiarrangement.h
     internal/dragcontroller.cpp

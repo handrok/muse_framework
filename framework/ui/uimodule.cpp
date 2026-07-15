@@ -37,6 +37,7 @@
 #include "internal/uistate.h"
 #include "internal/uiactionsregister.h"
 #include "internal/navigationcontroller.h"
+#include "internal/navigationuiactions.h"
 #include "internal/dragcontroller.h"
 #include "view/iconcodes.h"
 #include "view/widgetstyle.h"
@@ -189,6 +190,11 @@ void UiModuleContext::resolveImports()
     auto cs = ioc()->resolve<muse::rcommand::ICommandsState>(module_name);
     if (cs) {
         cs->reg(std::make_shared<NavigationCommandsState>(iocContext()));
+    }
+
+    auto ar = ioc()->resolve<IUiActionsRegister>(module_name);
+    if (ar) {
+        ar->reg(std::make_shared<NavigationUiActions>());
     }
 }
 
