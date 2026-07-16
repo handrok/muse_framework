@@ -232,6 +232,11 @@ MenuItem* AbstractMenuModel::makeMenu(const TranslatableString& title, const Men
     return item;
 }
 
+MenuItem* AbstractMenuModel::makeMenuItem(const muse::rcommand::Command& command, const TranslatableString& title)
+{
+    return makeMenuItem(ActionCode(command.toString()), title);
+}
+
 MenuItem* AbstractMenuModel::makeMenuItem(const ActionCode& actionCode, const TranslatableString& title)
 {
     const UiAction& action = uiActionsRegister()->action(actionCode);
