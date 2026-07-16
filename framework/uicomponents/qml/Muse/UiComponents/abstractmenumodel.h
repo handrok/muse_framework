@@ -95,6 +95,7 @@ protected:
 
     MenuItem* makeMenu(const TranslatableString& title, const MenuItemList& items, const QString& menuId = "", bool enabled = true);
 
+    MenuItem* makeMenuItem(const muse::rcommand::Command& command, const TranslatableString& title = {});
     MenuItem* makeMenuItem(const muse::actions::ActionCode& actionCode, const TranslatableString& title = {});
     MenuItem* makeSeparator();
 
