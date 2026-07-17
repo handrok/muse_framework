@@ -306,6 +306,20 @@ UriQuery& UriQuery::set(const std::string& key, const Val& val)
     return *this;
 }
 
+UriQuery UriQuery::set(const ValMap& vals) const
+{
+    UriQuery copy(*this);
+    copy.set(vals);
+    return copy;
+}
+
+UriQuery UriQuery::set(const std::string& key, const Val& val) const
+{
+    UriQuery copy(*this);
+    copy.set(key, val);
+    return copy;
+}
+
 UriQuery UriQuery::addingParam(const std::string& key, const Val& val) const
 {
     UriQuery copy(*this);
