@@ -185,7 +185,7 @@ TEST_F(AudioPlugins_RegisterAudioPluginsScenarioTest, UpdatePluginsRegistry)
     .WillByDefault(Return(alreadyRegisteredPlugins));
 
     // [THEN] The progress bar is shown
-    EXPECT_CALL(*m_interactive, showProgress(muse::trc("audio", "Scanning audio plugins"), _))
+    EXPECT_CALL(*m_interactive, showProgress(muse::trc("audio", "Validating audio plugins"), _))
     .Times(1);
 
     // [THEN] Processes started only for unregistered plugins; each gets an

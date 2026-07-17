@@ -270,7 +270,7 @@ static void appendPluginInfos(AudioPluginInfoList& destination, const AudioPlugi
 
 void RegisterAudioPluginsScenario::processPluginsRegistration(const io::paths_t& pluginPaths)
 {
-    interactive()->showProgress(muse::trc("audio", "Scanning audio plugins"), m_progress);
+    interactive()->showProgress(muse::trc("audio", "Validating audio plugins"), m_progress);
 
     m_aborted = false;
     m_progress.start();
